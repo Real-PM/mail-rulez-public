@@ -1,0 +1,18 @@
+{
+  "accounts": [
+    {
+      "email": "your-email@example.com",
+      "password": "your-app-specific-password",
+      "imap_server": "imap.gmail.com",
+      "imap_port": 993,
+      "folders": {
+        "processed": "Processed",
+        "junk": "Junk",
+        "approved_ads": "Approved Ads",
+        "pending": "Pending"
+      },
+      "mode": "startup",
+      "active": true
+    }
+  ]
+}

@@ -1,0 +1,367 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Retention Preview - {{ super() }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.preview-card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.preview-summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.warning-banner {
+    background: linear-gradient(45deg, #ffc107, #fd7e14);
+    color: #212529;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.policy-preview {
+    border-left: 4px solid #0d6efd;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #f8f9fa;
+    border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.email-count {
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.email-count.high { color: #dc3545; }
+.email-count.medium { color: #fd7e14; }
+.email-count.low { color: #198754; }
+
+.no-preview {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.execute-section {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-eye"></i> Retention Preview</h1>
+                <a href="{{ url_for('retention.policies_overview') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Policies
+                </a>
+            </div>
+
+            <div class="warning-banner">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-info-circle-fill me-2" style="font-size: 1.5em;"></i>
+                    <div>
+                        <strong>Dry Run Mode:</strong> This preview shows what would happen if retention policies were executed now.
+                        No actual emails will be moved or deleted during preview.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Form -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-funnel"></i> Preview Filters</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.account_email.label(class="form-label") }}
+                                    {{ form.account_email(class="form-select") }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.policy_id.label(class="form-label") }}
+                                    {{ form.policy_id(class="form-select") }}
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="mb-3 w-100">
+                                    {{ form.submit(class="btn btn-primary w-100") }}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if preview_data %}
+                {% if preview_data.get('accounts') %}
+                    <!-- Multi-Account Summary -->
+                    <div class="preview-summary">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.accounts|length }}</h3>
+                                <small>Accounts</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.summary.total_emails_to_trash }}</h3>
+                                <small>Emails to Trash</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.summary.total_emails_to_delete }}</h3>
+                                <small>Emails to Delete</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.summary.total_folders_affected|length }}</h3>
+                                <small>Folders Affected</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Per-Account Details -->
+                    {% for account_preview in preview_data.accounts %}
+                    <div class="card preview-card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-person-gear"></i> {{ account_preview.account_email }}</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if account_preview.policies %}
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <strong>Emails to Trash:</strong>
+                                        <span class="email-count {% if account_preview.summary.emails_to_trash > 100 %}high{% elif account_preview.summary.emails_to_trash > 10 %}medium{% else %}low{% endif %}">
+                                            {{ account_preview.summary.emails_to_trash }}
+                                        </span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Emails to Delete:</strong>
+                                        <span class="email-count {% if account_preview.summary.emails_to_delete > 100 %}high{% elif account_preview.summary.emails_to_delete > 10 %}medium{% else %}low{% endif %}">
+                                            {{ account_preview.summary.emails_to_delete }}
+                                        </span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Folders Affected:</strong>
+                                        {{ account_preview.summary.folders_affected|length }}
+                                    </div>
+                                </div>
+
+                                <!-- Policy Details -->
+                                {% for policy in account_preview.policies %}
+                                <div class="policy-preview">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6>{{ policy.policy_name }}</h6>
+                                            <small class="text-muted">{{ policy.folder }} • {{ policy.retention_days }} days retention</small>
+                                        </div>
+                                        <span class="badge bg-primary">{{ policy.emails_to_move }} emails</span>
+                                    </div>
+                                    {% if policy.emails_to_move > 0 %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-arrow-right"></i> 
+                                            Move to trash → {{ policy.total_lifecycle_days - policy.retention_days }} days → Permanent deletion
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted mb-0">No retention policies apply to this account.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                {% else %}
+                    <!-- Single Account Summary -->
+                    <div class="preview-summary">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.account_email }}</h3>
+                                <small>Account</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.summary.emails_to_trash }}</h3>
+                                <small>Emails to Trash</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.summary.emails_to_delete }}</h3>
+                                <small>Emails to Delete</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 class="mb-0">{{ preview_data.summary.folders_affected|length }}</h3>
+                                <small>Folders Affected</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Policy Details -->
+                    {% if preview_data.policies %}
+                        {% for policy in preview_data.policies %}
+                        <div class="card preview-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h5>{{ policy.policy_name }}</h5>
+                                        <p class="text-muted mb-2">Folder: {{ policy.folder }}</p>
+                                        <small class="text-muted">
+                                            Retention: {{ policy.retention_days }} days → 
+                                            Trash: {{ policy.total_lifecycle_days - policy.retention_days }} days → 
+                                            Delete
+                                        </small>
+                                    </div>
+                                    <div class="text-end">
+                                        <h4 class="email-count {% if policy.emails_to_move > 100 %}high{% elif policy.emails_to_move > 10 %}medium{% else %}low{% endif %}">
+                                            {{ policy.emails_to_move }}
+                                        </h4>
+                                        <small class="text-muted">emails to move</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="card">
+                            <div class="card-body no-preview">
+                                <i class="bi bi-inbox" style="font-size: 4em;"></i>
+                                <h5 class="mt-3">No Emails to Process</h5>
+                                <p>No emails meet the retention criteria for the selected account and policies.</p>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                <!-- Execute Section -->
+                {% if (preview_data.summary.emails_to_trash > 0) or (preview_data.get('accounts') and preview_data.summary.total_emails_to_trash > 0) %}
+                <div class="execute-section">
+                    <h5><i class="bi bi-play-circle"></i> Execute Retention</h5>
+                    <p>Ready to execute retention policies based on this preview?</p>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Warning:</strong> This will move 
+                            {% if preview_data.get('accounts') %}
+                                {{ preview_data.summary.total_emails_to_trash }}
+                            {% else %}
+                                {{ preview_data.summary.emails_to_trash }}
+                            {% endif %}
+                            emails to trash and permanently delete 
+                            {% if preview_data.get('accounts') %}
+                                {{ preview_data.summary.total_emails_to_delete }}
+                            {% else %}
+                                {{ preview_data.summary.emails_to_delete }}
+                            {% endif %}
+                            emails from trash.
+                        </div>
+                        <div>
+                            <button class="btn btn-warning me-2" onclick="executeRetention(true)">
+                                <i class="bi bi-play"></i> Dry Run
+                            </button>
+                            <button class="btn btn-danger" onclick="executeRetention(false)">
+                                <i class="bi bi-exclamation-triangle"></i> Execute Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            {% else %}
+                <div class="card">
+                    <div class="card-body no-preview">
+                        <i class="bi bi-search" style="font-size: 4em;"></i>
+                        <h5 class="mt-3">Generate Preview</h5>
+                        <p>Select an account and/or policy above to preview retention impact.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// CSRF token
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+function executeRetention(dryRun = false) {
+    if (!dryRun && !confirm('Are you sure you want to execute retention policies? This will permanently move emails to trash and delete old trash items.')) {
+        return;
+    }
+    
+    // Get current form values for execution
+    const accountEmail = document.getElementById('account_email').value || null;
+    const policyId = document.getElementById('policy_id').value || null;
+    
+    fetch('/retention/execute', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            confirmed: true,
+            account_email: accountEmail,
+            policy_id: policyId,
+            dry_run: dryRun
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let message = dryRun ? 'Dry run completed successfully' : 'Retention executed successfully';
+            let details = `\n\nOperations performed: ${data.results.length}`;
+            
+            // Add summary of results
+            let emailsToTrash = 0;
+            let emailsDeleted = 0;
+            data.results.forEach(result => {
+                if (result.stage === 'move_to_trash') {
+                    emailsToTrash += result.emails_affected;
+                } else if (result.stage === 'permanent_delete') {
+                    emailsDeleted += result.emails_affected;
+                }
+            });
+            
+            if (emailsToTrash > 0) details += `\nEmails moved to trash: ${emailsToTrash}`;
+            if (emailsDeleted > 0) details += `\nEmails permanently deleted: ${emailsDeleted}`;
+            
+            alert(message + details);
+            
+            if (!dryRun) {
+                // Refresh the preview after actual execution
+                location.reload();
+            }
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error executing retention');
+    });
+}
+</script>
+{% endblock %}

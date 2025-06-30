@@ -1,0 +1,115 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Initial Setup - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white text-center">
+                    <img src="{{ url_for('static', filename='img/mailrulez-dark.png') }}" alt="Mail-Rulez" height="60" class="mb-2">
+                    <h4><i class="bi bi-gear-fill"></i> Initial Setup</h4>
+                    <p class="mb-0">Configure your Mail-Rulez administrator account</p>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Welcome to Mail-Rulez!</strong> 
+                        Create your administrator account to get started managing your email processing system.
+                    </div>
+                    
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else "")) }}
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.username.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                This will be your login username for the web interface.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.password.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Use a strong password with at least 8 characters.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.confirm_password.label(class="form-label") }}
+                            {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else "")) }}
+                            {% if form.confirm_password.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.confirm_password.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid">
+                            {{ form.submit(class="btn btn-success btn-lg") }}
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <div class="row text-center text-muted">
+                        <div class="col">
+                            <small>
+                                <i class="bi bi-shield-check"></i> 
+                                Your password will be securely hashed and encrypted
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Setup Information -->
+            <div class="mt-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-info-circle"></i> What happens next?</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-1-circle text-primary"></i> Account Setup</h6>
+                                <p class="small">Configure your email accounts and IMAP settings</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-2-circle text-primary"></i> List Management</h6>
+                                <p class="small">Set up whitelists, blacklists, and vendor lists</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-3-circle text-primary"></i> Rule Configuration</h6>
+                                <p class="small">Create custom rules for email processing</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-4-circle text-primary"></i> Start Processing</h6>
+                                <p class="small">Begin automated email management</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

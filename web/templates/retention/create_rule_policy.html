@@ -1,0 +1,267 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Create Rule-Based Policy - {{ super() }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.retention-timeline {
+    background: linear-gradient(90deg, #e3f2fd 0%, #fff3e0 50%, #ffebee 100%);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.retention-stage {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+.stage-active { background: #e3f2fd; color: #0d47a1; }
+.stage-trash { background: #fff3e0; color: #e65100; }
+.stage-delete { background: #ffebee; color: #c62828; }
+
+.form-help {
+    background: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.danger-zone {
+    background: #fff5f5;
+    border: 2px solid #fed7d7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 2rem;
+}
+
+.rule-info {
+    background: #e7f3ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-gear-fill"></i> Create Rule-Based Retention Policy</h1>
+                <a href="{{ url_for('retention.policies_overview') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Policies
+                </a>
+            </div>
+
+            <div class="form-help">
+                <h5><i class="bi bi-info-circle"></i> How Rule-Based Retention Works</h5>
+                <p>Rule-based retention policies apply custom retention periods to emails processed by specific rules. 
+                   This allows you to set different retention periods for different types of emails:</p>
+                <ul>
+                    <li><strong>LinkedIn notifications:</strong> 30 days retention</li>
+                    <li><strong>Package tracking:</strong> 90 days retention</li>
+                    <li><strong>Newsletter subscriptions:</strong> 14 days retention</li>
+                </ul>
+                <p class="mb-0">The rule must exist and be active for this policy to take effect.</p>
+            </div>
+
+            <form method="POST" class="needs-validation" novalidate>
+                {{ form.hidden_tag() }}
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Policy Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.name.label(class="form-label") }}
+                                    {{ form.name(class="form-control", placeholder="e.g., LinkedIn Notification Cleanup") }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.rule_id.label(class="form-label") }}
+                                    {{ form.rule_id(class="form-select", onchange="updateRuleInfo()") }}
+                                    {% if not form.rule_id.choices or form.rule_id.choices|length <= 1 %}
+                                    <div class="rule-info">
+                                        <i class="bi bi-exclamation-circle"></i>
+                                        <strong>No rules available.</strong> You need to create rules first before setting up rule-based retention.
+                                        <a href="{{ url_for('rules.list_rules') }}" class="btn btn-sm btn-primary ms-2">
+                                            <i class="bi bi-gear"></i> Manage Rules
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                    {% if form.rule_id.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.rule_id.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows="3", placeholder="Optional description of what this policy does") }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.description.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.retention_days.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.retention_days(class="form-control", value="30", oninput="updateTimeline()") }}
+                                        <span class="input-group-text">days</span>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        How many days to keep emails processed by this rule before moving to trash.
+                                    </small>
+                                    {% if form.retention_days.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.retention_days.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.trash_retention_days.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.trash_retention_days(class="form-control", value="7", oninput="updateTimeline()") }}
+                                        <span class="input-group-text">days</span>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        How many days to keep emails in trash before permanent deletion.
+                                    </small>
+                                    {% if form.trash_retention_days.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.trash_retention_days.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Retention Timeline Visualization -->
+                        <div class="retention-timeline">
+                            <h6><i class="bi bi-diagram-3"></i> Retention Timeline</h6>
+                            <div id="timeline-display">
+                                <span class="retention-stage stage-active">Day 0-30: Active in Destination Folder</span>
+                                <i class="bi bi-arrow-right"></i>
+                                <span class="retention-stage stage-trash">Day 30-37: Recoverable in Trash</span>
+                                <i class="bi bi-arrow-right"></i>
+                                <span class="retention-stage stage-delete">Day 37+: Permanently Deleted</span>
+                            </div>
+                            <small class="text-muted d-block mt-2">
+                                <strong>Total lifecycle:</strong> <span id="total-days">37</span> days from rule processing to permanent deletion
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.active(class="form-check-input") }}
+                                {{ form.active.label(class="form-check-label") }}
+                                <small class="form-text text-muted">
+                                    Inactive policies are not executed automatically but can be run manually.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="danger-zone">
+                    <h6><i class="bi bi-exclamation-triangle text-danger"></i> Important Safety Information</h6>
+                    <ul class="mb-0">
+                        <li><strong>Rule Dependency:</strong> This retention policy only works when the associated rule is active and processing emails.</li>
+                        <li><strong>Folder Location:</strong> Retention applies to emails wherever the rule moves them (not just the source folder).</li>
+                        <li><strong>Permanent Deletion:</strong> After the trash retention period, emails are permanently deleted and cannot be recovered.</li>
+                        <li><strong>Testing:</strong> Use the Preview feature to see what would be affected before creating the policy.</li>
+                    </ul>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('retention.policies_overview') }}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                    <div>
+                        <a href="{{ url_for('retention.retention_preview') }}" class="btn btn-info me-2">
+                            <i class="bi bi-eye"></i> Preview First
+                        </a>
+                        {{ form.submit(class="btn btn-primary", disabled=(not form.rule_id.choices or form.rule_id.choices|length <= 1)) }}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateTimeline() {
+    const retentionDays = parseInt(document.getElementById('retention_days').value) || 30;
+    const trashDays = parseInt(document.getElementById('trash_retention_days').value) || 7;
+    const totalDays = retentionDays + trashDays;
+    
+    const timeline = document.getElementById('timeline-display');
+    timeline.innerHTML = `
+        <span class="retention-stage stage-active">Day 0-${retentionDays}: Active in Destination Folder</span>
+        <i class="bi bi-arrow-right"></i>
+        <span class="retention-stage stage-trash">Day ${retentionDays}-${totalDays}: Recoverable in Trash</span>
+        <i class="bi bi-arrow-right"></i>
+        <span class="retention-stage stage-delete">Day ${totalDays}+: Permanently Deleted</span>
+    `;
+    
+    document.getElementById('total-days').textContent = totalDays;
+}
+
+function updateRuleInfo() {
+    // This could be enhanced to show rule details
+    // For now, just update the timeline
+    updateTimeline();
+}
+
+// Form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Initialize timeline
+document.addEventListener('DOMContentLoaded', updateTimeline);
+</script>
+{% endblock %}

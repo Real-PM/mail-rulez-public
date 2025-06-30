@@ -1,0 +1,149 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Create Folders - {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-folder-plus text-warning"></i> Create Email Folders</h2>
+                <a href="{{ url_for('accounts.list_accounts') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Accounts
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-server text-primary"></i> 
+                        {{ account.name }} ({{ account.email }})
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if folder_info.missing_folders %}
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-info-circle"></i> Folder Creation Required</h5>
+                        <p>The following essential folders need to be created for email processing:</p>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-exclamation-triangle text-warning"></i> Folders to Create ({{ folder_info.missing_folders|length }})</h6>
+                            <div class="list-group">
+                                {% for folder_type, folder_name in folder_info.missing_folders %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ folder_name }}</strong>
+                                        <br><small class="text-muted">{{ folder_type|title }} folder</small>
+                                    </div>
+                                    <span class="badge bg-warning">New</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-check-circle text-success"></i> Existing Folders ({{ folder_info.existing_folders|length }})</h6>
+                            <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+                                {% for folder in folder_info.existing_folders %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>{{ folder }}</span>
+                                    <span class="badge bg-success">Exists</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <form method="POST" action="{{ url_for('accounts.create_folders', account_name=account.name) }}" id="folder-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input type="hidden" name="action" value="" id="action-input"/>
+                                <div class="d-flex gap-3">
+                                    <button type="button" onclick="submitForm('create')" class="btn btn-success btn-lg">
+                                        <i class="fas fa-folder-plus"></i> Create {{ folder_info.missing_folders|length }} Folders
+                                    </button>
+                                    <button type="button" onclick="submitForm('skip')" class="btn btn-outline-secondary btn-lg">
+                                        <i class="fas fa-forward"></i> Skip for Now
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <script>
+                                function submitForm(action) {
+                                    document.getElementById('action-input').value = action;
+                                    document.getElementById('folder-form').submit();
+                                }
+                            </script>
+                        </div>
+                    </div>
+
+                    {% else %}
+                    <div class="alert alert-success">
+                        <h5><i class="fas fa-check-circle"></i> All Folders Ready</h5>
+                        <p>All required folders already exist for this account. No folder creation needed.</p>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-check-circle text-success"></i> Existing Folders ({{ folder_info.existing_folders|length }})</h6>
+                        <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            {% for folder in folder_info.existing_folders %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>{{ folder }}</span>
+                                <span class="badge bg-success">Exists</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <a href="{{ url_for('accounts.list_accounts') }}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-arrow-left"></i> Continue to Accounts
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> About Email Folders</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Essential Processing Folders</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Pending:</strong> Emails from unknown senders during startup mode</li>
+                                <li><strong>Processed:</strong> Successfully processed emails in startup mode</li>
+                                <li><strong>Junk:</strong> Spam and rejected emails</li>
+                                <li><strong>Approved_Ads:</strong> Approved vendor/promotional emails</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Training Folders</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>_whitelist:</strong> Training folder for emails you want whitelisted</li>
+                                <li><strong>_blacklist:</strong> Training folder for emails you want blacklisted</li>
+                                <li><strong>_vendor:</strong> Training folder for vendor/promotional emails</li>
+                                <li><strong>_headhunter:</strong> Training folder for recruiting/headhunter emails</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

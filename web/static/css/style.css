@@ -1,0 +1,169 @@
+/*
+ * Mail-Rulez - Intelligent Email Management System
+ * Copyright (c) 2024 Real Project Management Solutions
+ * Dual-licensed software. See LICENSE-DUAL for details.
+ */
+
+
+/* Mail-Rulez Custom Styles */
+
+:root {
+    --primary-color: #0d6efd;
+    --secondary-color: #6c757d;
+    --success-color: #198754;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --info-color: #0dcaf0;
+}
+
+/* Global Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Navigation */
+.navbar-brand {
+    font-weight: 600;
+}
+
+.nav-link.active {
+    font-weight: 600;
+}
+
+/* Cards */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 0.375rem;
+    font-weight: 500;
+}
+
+/* Forms */
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Stats Cards */
+.text-lg {
+    font-size: 2rem;
+}
+
+.text-white-75 {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Dashboard specific styles */
+.border-bottom {
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+/* Error pages */
+.error-template {
+    padding: 40px 15px;
+}
+
+.error-template h1 {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+.error-template h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    color: #495057;
+}
+
+.error-details {
+    font-size: 1.1rem;
+    color: #6c757d;
+    margin-bottom: 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .text-lg {
+        font-size: 1.5rem;
+    }
+}
+
+/* Loading spinner */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Alert improvements */
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+}
+
+/* Utility classes */
+.min-vh-100 {
+    min-height: 100vh;
+}
+
+.text-decoration-none {
+    text-decoration: none !important;
+}
+
+/* Card hover effects */
+.card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease-in-out;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Progress bars */
+.progress {
+    height: 8px;
+    border-radius: 4px;
+}
+
+/* Badge improvements */
+.badge {
+    font-weight: 500;
+}
+
+/* Rules UI spacing improvements */
+.rule-card + .rule-card {
+    margin-top: 2rem;
+}
+
+.template-card + .template-card {
+    margin-top: 1.5rem;
+}
+
+/* Enhanced card spacing for better visual separation */
+.card.mb-4 {
+    margin-bottom: 2rem !important;
+}
+
+/* Rule-specific spacing improvements */
+.rules-grid .card {
+    margin-bottom: 2rem;
+}

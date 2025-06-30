@@ -1,0 +1,376 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Retention Audit Report - {{ super() }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.audit-summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.audit-card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.stage-badge {
+    font-size: 0.8em;
+    padding: 0.25rem 0.5rem;
+}
+
+.stage-trash {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.stage-delete {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.timeline-filter {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+.export-section {
+    background: #e7f3ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 2rem;
+}
+
+.error-section {
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-file-text"></i> Retention Audit Report</h1>
+                <div>
+                    <div class="btn-group me-2" role="group">
+                        <a href="?days=7" class="btn btn-outline-primary {% if days_back == 7 %}active{% endif %}">7 Days</a>
+                        <a href="?days=30" class="btn btn-outline-primary {% if days_back == 30 %}active{% endif %}">30 Days</a>
+                        <a href="?days=90" class="btn btn-outline-primary {% if days_back == 90 %}active{% endif %}">90 Days</a>
+                    </div>
+                    <a href="{{ url_for('retention.policies_overview') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Policies
+                    </a>
+                </div>
+            </div>
+
+            <!-- Report Summary -->
+            <div class="audit-summary">
+                <div class="row text-center">
+                    <div class="col-md-2">
+                        <h3 class="mb-0">{{ days_back }}</h3>
+                        <small>Days Reviewed</small>
+                    </div>
+                    <div class="col-md-2">
+                        <h3 class="mb-0">{{ report.summary.total_operations or 0 }}</h3>
+                        <small>Total Operations</small>
+                    </div>
+                    <div class="col-md-2">
+                        <h3 class="mb-0">{{ report.summary.emails_moved_to_trash or 0 }}</h3>
+                        <small>Moved to Trash</small>
+                    </div>
+                    <div class="col-md-2">
+                        <h3 class="mb-0">{{ report.summary.emails_permanently_deleted or 0 }}</h3>
+                        <small>Permanently Deleted</small>
+                    </div>
+                    <div class="col-md-2">
+                        <h3 class="mb-0">{{ report.summary.successful_operations or 0 }}</h3>
+                        <small>Successful</small>
+                    </div>
+                    <div class="col-md-2">
+                        <h3 class="mb-0">{{ report.summary.failed_operations or 0 }}</h3>
+                        <small>Failed</small>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-12 text-center">
+                        <small>
+                            Report Period: {{ report.report_period.start_date }} to {{ report.report_period.end_date }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scheduler Information -->
+            {% if report.scheduler_info %}
+            <div class="card audit-card">
+                <div class="card-header">
+                    <h5><i class="bi bi-clock"></i> Scheduler Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Status:</strong>
+                            <span class="badge bg-{{ 'success' if report.scheduler_info.running else 'secondary' }}">
+                                {{ 'Running' if report.scheduler_info.running else 'Stopped' }}
+                            </span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Total Executions:</strong>
+                            {{ report.scheduler_info.total_scheduled_executions or 0 }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Success Rate:</strong>
+                            {% set total = report.scheduler_info.total_scheduled_executions or 0 %}
+                            {% set successful = report.scheduler_info.successful_executions or 0 %}
+                            {% if total > 0 %}
+                                {{ "%.1f"|format((successful / total) * 100) }}%
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Next Execution:</strong>
+                            {{ report.scheduler_info.next_execution_estimate or 'Not scheduled' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Operations by Stage -->
+            {% if report.by_stage %}
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card audit-card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-arrow-right-circle"></i> Stage 1: Move to Trash</h5>
+                        </div>
+                        <div class="card-body">
+                            {% set stage1 = report.by_stage.move_to_trash %}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Operations:</strong> {{ stage1.total_operations or 0 }}<br>
+                                    <strong>Success Rate:</strong> 
+                                    {% if stage1.total_operations and stage1.total_operations > 0 %}
+                                        {{ "%.1f"|format((stage1.successful_operations / stage1.total_operations) * 100) }}%
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Emails Moved:</strong> {{ stage1.emails_affected or 0 }}<br>
+                                    <strong>Avg per Operation:</strong>
+                                    {% if stage1.total_operations and stage1.total_operations > 0 %}
+                                        {{ "%.1f"|format((stage1.emails_affected or 0) / stage1.total_operations) }}
+                                    {% else %}
+                                        0
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card audit-card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-trash"></i> Stage 2: Permanent Delete</h5>
+                        </div>
+                        <div class="card-body">
+                            {% set stage2 = report.by_stage.permanent_delete %}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Operations:</strong> {{ stage2.total_operations or 0 }}<br>
+                                    <strong>Success Rate:</strong>
+                                    {% if stage2.total_operations and stage2.total_operations > 0 %}
+                                        {{ "%.1f"|format((stage2.successful_operations / stage2.total_operations) * 100) }}%
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Emails Deleted:</strong> {{ stage2.emails_affected or 0 }}<br>
+                                    <strong>Avg per Operation:</strong>
+                                    {% if stage2.total_operations and stage2.total_operations > 0 %}
+                                        {{ "%.1f"|format((stage2.emails_affected or 0) / stage2.total_operations) }}
+                                    {% else %}
+                                        0
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Operations by Policy -->
+            {% if report.by_policy %}
+            <div class="card audit-card">
+                <div class="card-header">
+                    <h5><i class="bi bi-list-ul"></i> Operations by Policy</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Policy</th>
+                                    <th>Operations</th>
+                                    <th>Emails Affected</th>
+                                    <th>Success Rate</th>
+                                    <th>Last Activity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for policy_id, stats in report.by_policy.items() %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ stats.policy_name or policy_id }}</strong><br>
+                                        <small class="text-muted">{{ policy_id }}</small>
+                                    </td>
+                                    <td>{{ stats.total_operations }}</td>
+                                    <td>{{ stats.emails_affected }}</td>
+                                    <td>
+                                        {% if stats.total_operations > 0 %}
+                                            <span class="badge bg-{{ 'success' if (stats.successful_operations / stats.total_operations) > 0.9 else 'warning' }}">
+                                                {{ "%.1f"|format((stats.successful_operations / stats.total_operations) * 100) }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ stats.last_execution or 'Never' }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Error Summary -->
+            {% if report.errors and report.errors|length > 0 %}
+            <div class="error-section">
+                <h5><i class="bi bi-exclamation-triangle text-danger"></i> Errors and Issues</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Stage</th>
+                                <th>Policy</th>
+                                <th>Error Message</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for error in report.errors[:10] %}
+                            <tr>
+                                <td><small>{{ error.timestamp }}</small></td>
+                                <td>
+                                    <span class="badge stage-{{ 'trash' if error.stage == 'move_to_trash' else 'delete' }}">
+                                        {{ error.stage.replace('_', ' ').title() }}
+                                    </span>
+                                </td>
+                                <td><small>{{ error.policy_id or 'System' }}</small></td>
+                                <td><small>{{ error.error_message }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if report.errors|length > 10 %}
+                    <small class="text-muted">Showing 10 of {{ report.errors|length }} errors.</small>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Export Section -->
+            <div class="export-section">
+                <h5><i class="bi bi-download"></i> Export Report</h5>
+                <p>Export this audit report for compliance, archival, or analysis purposes.</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted">
+                            Report generated: {{ report.report_period.end_date }}<br>
+                            Data retention: 365 days (configurable)
+                        </small>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" onclick="exportReport('csv')">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="exportReport('json')">
+                            <i class="bi bi-file-earmark-code"></i> Export JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-lightning"></i> Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <a href="{{ url_for('retention.retention_preview') }}" class="btn btn-info w-100 mb-2">
+                                        <i class="bi bi-eye"></i> Preview Current Impact
+                                    </a>
+                                </div>
+                                <div class="col-md-4">
+                                    <a href="{{ url_for('retention.policies_overview') }}" class="btn btn-primary w-100 mb-2">
+                                        <i class="bi bi-gear"></i> Manage Policies
+                                    </a>
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-secondary w-100 mb-2" onclick="refreshReport()">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportReport(format) {
+    // This would implement report export functionality
+    alert(`Export to ${format.toUpperCase()} not implemented yet. This would download a ${format} file with the audit data.`);
+}
+
+function refreshReport() {
+    location.reload();
+}
+</script>
+{% endblock %}
