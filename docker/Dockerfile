@@ -2,125 +2,85 @@
 # Copyright (c) 2024 Real Project Management Solutions
 # Dual-licensed: AGPL v3 / Commercial. See LICENSE-DUAL
 
-# Multi-stage Dockerfile for Mail-Rulez containerization
-# Optimized for production deployment with comprehensive logging
+FROM python:3.9-slim AS base
 
-FROM python:3.10-slim AS base
-
-# Build arguments for version information
-ARG BUILD_COMMIT_HASH
+# Build arguments
+ARG VERSION=1.0.0
 ARG BUILD_DATE
+ARG VCS_REF
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    BUILD_COMMIT_HASH=${BUILD_COMMIT_HASH} \
-    BUILD_DATE=${BUILD_DATE}
+# Labels as per OCI image spec
+LABEL org.opencontainers.image.title="Mail-Rulez"
+LABEL org.opencontainers.image.description="Intelligent Email Management System - Automate email processing with rules-based filtering"
+LABEL org.opencontainers.image.version=$VERSION
+LABEL org.opencontainers.image.created=$BUILD_DATE
+LABEL org.opencontainers.image.authors="Real Project Management Solutions <support@mail-rulez.com>"
+LABEL org.opencontainers.image.url="https://mail-rulez.com"
+LABEL org.opencontainers.image.documentation="https://github.com/Real-PM/mail-rulez-public/wiki"
+LABEL org.opencontainers.image.source="https://github.com/Real-PM/mail-rulez-public"
+LABEL org.opencontainers.image.revision=$VCS_REF
+LABEL org.opencontainers.image.vendor="Real Project Management Solutions"
+LABEL org.opencontainers.image.licenses="AGPL-3.0 OR Commercial"
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user for security
-RUN groupadd -r mailrulez && useradd -r -g mailrulez mailrulez
+# Create non-root user
+RUN groupadd -g 1000 mailrulez && \
+    useradd -r -u 1000 -g mailrulez -s /bin/bash -m mailrulez
 
-# Development stage
-FROM base AS development
-
+# Set working directory
 WORKDIR /app
 
-# Copy requirements first for better layer caching
+# Copy requirements first (better layer caching)
 COPY requirements.txt .
-RUN pip install -r requirements.txt
 
-# Copy application code
-COPY . .
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Set configurable paths for development
-ENV MAIL_RULEZ_APP_DIR=/app \
-    MAIL_RULEZ_LOG_DIR=/app/logs \
-    MAIL_RULEZ_DATA_DIR=/app/data \
-    MAIL_RULEZ_LISTS_DIR=/app/lists \
-    MAIL_RULEZ_CONFIG_DIR=/app/config
+# Copy application code with proper ownership
+COPY --chown=mailrulez:mailrulez src/ ./
+COPY --chown=mailrulez:mailrulez web/ ./web/
+COPY --chown=mailrulez:mailrulez services/ ./services/
+COPY --chown=mailrulez:mailrulez retention/ ./retention/
+COPY --chown=mailrulez:mailrulez docker/entrypoint.sh ./
+COPY --chown=mailrulez:mailrulez docker/healthcheck.sh ./
+COPY --chown=mailrulez:mailrulez LICENSE* ./
 
-# Create directories with proper permissions
-RUN mkdir -p ${MAIL_RULEZ_LOG_DIR} ${MAIL_RULEZ_LISTS_DIR} ${MAIL_RULEZ_DATA_DIR} ${MAIL_RULEZ_CONFIG_DIR} && \
-    chown -R mailrulez:mailrulez /app
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/config /app/data /app/lists /app/logs && \
+    chown -R mailrulez:mailrulez /app && \
+    chmod -R 755 /app && \
+    chmod +x entrypoint.sh healthcheck.sh
 
-# Set environment for development
-ENV FLASK_ENV=development \
-    MAIL_RULEZ_LOG_LEVEL=DEBUG \
-    MAIL_RULEZ_JSON_LOGS=false
+# Create version file
+RUN echo $VERSION > /app/VERSION
 
+# Switch to non-root user
 USER mailrulez
 
-EXPOSE 5001
-
-CMD ["python", "web/app.py"]
-
-# Production stage
-FROM base AS production
-
-WORKDIR /app
-
-# Copy requirements and install production dependencies
-COPY requirements.txt .
-RUN pip install -r requirements.txt && \
-    pip install gunicorn
-
-# Copy application code
-COPY . .
-
-# Create build-time version file
-RUN echo "BUILD_COMMIT_HASH=\"${BUILD_COMMIT_HASH:-unknown}\"" > /app/.build_version && \
-    echo "BUILD_DATE=\"${BUILD_DATE:-unknown}\"" >> /app/.build_version
-
-# Set configurable paths for production
-ENV MAIL_RULEZ_APP_DIR=/app \
-    MAIL_RULEZ_LOG_DIR=/app/logs \
-    MAIL_RULEZ_DATA_DIR=/app/data \
-    MAIL_RULEZ_LISTS_DIR=/app/lists \
-    MAIL_RULEZ_BACKUPS_DIR=/app/backups \
-    MAIL_RULEZ_CONFIG_DIR=/app/config
-
-# Create directories and set permissions
-RUN mkdir -p ${MAIL_RULEZ_LOG_DIR} ${MAIL_RULEZ_LISTS_DIR} ${MAIL_RULEZ_DATA_DIR} ${MAIL_RULEZ_BACKUPS_DIR} ${MAIL_RULEZ_CONFIG_DIR} && \
-    chown -R mailrulez:mailrulez /app
-
-# Set production environment variables
-ENV FLASK_ENV=production \
-    CONTAINER_ENV=true \
-    MAIL_RULEZ_LOG_LEVEL=INFO \
-    MAIL_RULEZ_JSON_LOGS=true \
-    MAIL_RULEZ_LOG_RETENTION_DAYS=30
-
-# Install log rotation utility
-RUN apt-get update && apt-get install -y logrotate && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy log rotation configuration
-COPY docker/logrotate.conf /etc/logrotate.d/mailrulez
-
-# Copy startup scripts
-COPY docker/entrypoint.sh /entrypoint.sh
-COPY docker/healthcheck.sh /healthcheck.sh
-COPY docker/scripts/ /app/docker/scripts/
-RUN chmod +x /entrypoint.sh /healthcheck.sh /app/docker/scripts/*.py
-
-USER mailrulez
-
-EXPOSE 5001
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MAIL_RULEZ_VERSION=$VERSION \
+    PORT=5001 \
+    LOG_LEVEL=INFO \
+    TZ=UTC
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD /healthcheck.sh
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ./healthcheck.sh || exit 1
 
-# Volume mounts for persistent data (using environment variables)
-VOLUME ["${MAIL_RULEZ_LOG_DIR}", "${MAIL_RULEZ_DATA_DIR}", "${MAIL_RULEZ_LISTS_DIR}", "${MAIL_RULEZ_BACKUPS_DIR}"]
+# Expose port
+EXPOSE 5001
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:5001 --workers 2 --worker-class gthread --threads 4 --access-logfile ${MAIL_RULEZ_LOG_DIR}/access.log --error-logfile ${MAIL_RULEZ_LOG_DIR}/error.log web.app:application"]
+# Volume mount points
+VOLUME ["/app/config", "/app/data", "/app/lists", "/app/logs"]
+
+# Entrypoint and command
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["python", "web/app.py"]
