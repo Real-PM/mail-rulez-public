@@ -1,17 +1,4 @@
 """
-Mail-Rulez - Intelligent Email Management System
-Copyright (c) 2024 Real Project Management Solutions
-
-This software is dual-licensed:
-1. AGPL v3 for open source/self-hosted use
-2. Commercial license for hosted services and enterprise use
-
-For commercial licensing, contact: license@mail-rulez.com
-See LICENSE-DUAL for complete licensing information.
-"""
-
-
-"""
 Retention policy management routes for Mail-Rulez web interface
 
 Handles retention policy configuration, preview, and management.
@@ -41,6 +28,9 @@ from retention import (
     InvalidRetentionPeriodError
 )
 
+# Import Account class for IMAP connections
+from functions import Account
+
 retention_bp = Blueprint('retention', __name__)
 
 
@@ -60,10 +50,16 @@ def get_retention_manager():
     return RetentionPolicyManager(config.config_dir)
 
 
+# Global scheduler instance
+_scheduler_instance = None
+
 def get_retention_scheduler():
-    """Get the retention scheduler instance"""
-    manager = get_retention_manager()
-    return RetentionScheduler(manager)
+    """Get the retention scheduler instance (singleton)"""
+    global _scheduler_instance
+    if _scheduler_instance is None:
+        manager = get_retention_manager()
+        _scheduler_instance = RetentionScheduler(manager)
+    return _scheduler_instance
 
 
 class FolderPolicyForm(FlaskForm):
@@ -353,7 +349,9 @@ def retention_preview():
                         break
                 
                 if account:
-                    preview_data = manager.get_retention_preview(account, policy_id)
+                    # Convert AccountConfig to Account object for IMAP operations
+                    account_obj = Account(account.server, account.email, account.password)
+                    preview_data = manager.get_retention_preview(account_obj, policy_id)
                 else:
                     flash(f"Account {account_email} not found", 'error')
             else:
@@ -369,7 +367,9 @@ def retention_preview():
                 
                 for account in config.accounts:
                     try:
-                        account_preview = manager.get_retention_preview(account, policy_id)
+                        # Convert AccountConfig to Account object for IMAP operations
+                        account_obj = Account(account.server, account.email, account.password)
+                        account_preview = manager.get_retention_preview(account_obj, policy_id)
                         preview_data['accounts'].append(account_preview)
                         
                         # Aggregate summary
@@ -531,7 +531,9 @@ def trash_contents(account_email):
             return redirect(url_for('retention.policies_overview'))
         
         manager = get_retention_manager()
-        trash_items = manager.trash_manager.get_trash_contents(account)
+        # Convert AccountConfig to Account object for IMAP operations
+        account_obj = Account(account.server, account.email, account.password)
+        trash_items = manager.trash_manager.get_trash_contents(account_obj)
         
         return render_template('retention/trash_contents.html', 
                              account=account, 
@@ -568,8 +570,10 @@ def restore_from_trash(account_email):
             return jsonify({'error': 'Account not found'}), 404
         
         manager = get_retention_manager()
+        # Convert AccountConfig to Account object for IMAP operations
+        account_obj = Account(account.server, account.email, account.password)
         restored_count = manager.trash_manager.restore_from_trash(
-            account=account,
+            account=account_obj,
             message_uids=message_uids,
             target_folder=target_folder
         )

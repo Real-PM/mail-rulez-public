@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
 """
-Mail-Rulez - Intelligent Email Management System
-Copyright (c) 2024 Real Project Management Solutions
-
-This software is dual-licensed:
-1. AGPL v3 for open source/self-hosted use
-2. Commercial license for hosted services and enterprise use
-
-For commercial licensing, contact: license@mail-rulez.com
-See LICENSE-DUAL for complete licensing information.
-"""
-
-
-"""
 CLI tool for resetting admin password
 For emergency password recovery when web interface is not accessible
 """
