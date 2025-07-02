@@ -1,0 +1,28 @@
+# Core scheduling and email processing
+APScheduler==3.10.4
+imap-tools==1.7.4
+python-dotenv==1.0.1
+
+# Timezone handling
+pytz==2024.2
+tzdata==2024.2
+tzlocal==5.2
+
+# Security and encryption
+cryptography==45.0.0
+bcrypt==4.2.1
+
+# Web framework and forms
+Flask==3.1.0
+Flask-WTF==1.2.2
+WTForms==3.2.1
+email-validator==2.2.0
+
+# System monitoring
+psutil==6.1.1
+
+# Testing framework
+pytest==8.3.4
+
+# Python compatibility
+six==1.16.0

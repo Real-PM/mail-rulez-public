@@ -1,0 +1,426 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Add Email Account - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.account-form {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.form-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+.form-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+.section-title {
+    color: #495057;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+.test-connection-btn {
+    margin-top: 10px;
+}
+.connection-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+}
+.connection-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+.connection-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+.folder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2"><i class="bi bi-person-plus"></i> Add Email Account</h1>
+        <a href="{{ url_for('accounts.list_accounts') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Accounts
+        </a>
+    </div>
+
+    <br>
+
+    <div class="account-form">
+        <form method="POST" id="accountForm">
+            {{ form.hidden_tag() }}
+
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h4 class="section-title"><i class="bi bi-info-circle"></i> Basic Information</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control") }}
+                            {% if form.name.errors %}
+                                <div class="text-danger small">{{ form.name.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control") }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small">{{ form.email.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IMAP Configuration -->
+            <div class="form-section">
+                <h4 class="section-title"><i class="bi bi-server"></i> IMAP Server Configuration</h4>
+                
+                <!-- Provider-specific authentication notes -->
+                <div class="alert alert-warning mb-3">
+                    <h6><i class="bi bi-exclamation-triangle"></i> <strong>Provider Authentication Notes</strong></h6>
+                    <ul class="mb-0">
+                        <li><strong>Gmail:</strong> Requires App Passwords - enable 2FA, then generate an App Password in your Google Account settings</li>
+                        <li><strong>Outlook.com/Hotmail:</strong> May require App Passwords - go to Security settings → App passwords → Mail</li>
+                        <li><strong>Microsoft 365:</strong> Organization settings may block IMAP or require modern authentication</li>
+                        <li><strong>Yahoo:</strong> Generate App Password in Account Security settings</li>
+                    </ul>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.server.label(class="form-label") }}
+                            {{ form.server(class="form-control", placeholder="imap.example.com") }}
+                            {% if form.server.errors %}
+                                <div class="text-danger small">{{ form.server.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.port.label(class="form-label") }}
+                            {{ form.port(class="form-control") }}
+                            {% if form.port.errors %}
+                                <div class="text-danger small">{{ form.port.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.use_ssl.label(class="form-label") }}
+                            {{ form.use_ssl(class="form-select") }}
+                            {% if form.use_ssl.errors %}
+                                <div class="text-danger small">{{ form.use_ssl.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authentication -->
+            <div class="form-section">
+                <h4 class="section-title"><i class="bi bi-shield-lock"></i> Authentication</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control", placeholder="Usually your email address") }}
+                            {% if form.username.errors %}
+                                <div class="text-danger small">{{ form.username.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control") }}
+                            {% if form.password.errors %}
+                                <div class="text-danger small">{{ form.password.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <button type="button" class="btn btn-outline-info test-connection-btn" id="testConnectionBtn">
+                            <i class="bi bi-plug"></i> Test Connection
+                        </button>
+                        <div id="connectionStatus" class="connection-status"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folder Configuration -->
+            <div class="form-section">
+                <h4 class="section-title"><i class="bi bi-folder"></i> Folder Configuration</h4>
+                <p class="text-muted mb-3">Configure which IMAP folders to use for email processing. You can customize these based on your email server's folder structure.</p>
+                
+                <div class="folder-grid">
+                    <div class="mb-3">
+                        {{ form.folder_inbox.label(class="form-label") }}
+                        {{ form.folder_inbox(class="form-control", id="folder_inbox") }}
+                        <div class="form-text">📥 Source folder where new emails arrive</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_processed.label(class="form-label") }}
+                        {{ form.folder_processed(class="form-control", id="folder_processed") }}
+                        <div class="form-text">✅ <strong>Startup Mode Only:</strong> Whitelisted emails moved here during initial processing to clear inbox backlog. In maintenance mode, whitelisted emails stay in INBOX.</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_pending.label(class="form-label") }}
+                        {{ form.folder_pending(class="form-control", id="folder_pending") }}
+                        <div class="form-text">⏳ Emails from unknown senders (not on any list) waiting for manual review and categorization</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_junk.label(class="form-label") }}
+                        {{ form.folder_junk(class="form-control", id="folder_junk") }}
+                        <div class="form-text">🗑️ Spam and unwanted emails filtered automatically</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_approved_ads.label(class="form-label") }}
+                        {{ form.folder_approved_ads(class="form-control", id="folder_approved_ads") }}
+                        <div class="form-text">📢 Marketing emails from approved vendors you want to receive</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_packages.label(class="form-label") }}
+                        {{ form.folder_packages(class="form-control", id="folder_packages") }}
+                        <div class="form-text">📦 Package delivery notifications (FedEx, UPS, USPS, Amazon, DHL)</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_receipts.label(class="form-label") }}
+                        {{ form.folder_receipts(class="form-control", id="folder_receipts") }}
+                        <div class="form-text">🧾 Receipts, invoices, and financial documents</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_linkedin.label(class="form-label") }}
+                        {{ form.folder_linkedin(class="form-control", id="folder_linkedin") }}
+                        <div class="form-text">💼 LinkedIn notifications and professional networking emails</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_headhunt.label(class="form-label") }}
+                        {{ form.folder_headhunt(class="form-control", placeholder="Optional - e.g., INBOX.HeadHunt", id="folder_headhunt") }}
+                        <div class="form-text">🎯 <strong>Optional:</strong> Job opportunities and recruitment emails</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_whitelist.label(class="form-label") }}
+                        {{ form.folder_whitelist(class="form-control", id="folder_whitelist") }}
+                        <div class="form-text">📂 <strong>Manual Training Folder:</strong> Drag emails here to automatically add senders to your whitelist (white.txt). These emails will then be moved to Processed folder.</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_blacklist.label(class="form-label") }}
+                        {{ form.folder_blacklist(class="form-control", id="folder_blacklist") }}
+                        <div class="form-text">📂 <strong>Manual Training Folder:</strong> Drag emails here to automatically add senders to your blacklist (black.txt). These emails will then be moved to Junk folder.</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_vendor.label(class="form-label") }}
+                        {{ form.folder_vendor(class="form-control", id="folder_vendor") }}
+                        <div class="form-text">📂 <strong>Manual Training Folder:</strong> Drag vendor emails here to automatically add senders to your vendor list (vendor.txt). These emails will then be moved to Approved Ads folder.</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.folder_headhunter.label(class="form-label") }}
+                        {{ form.folder_headhunter(class="form-control", id="folder_headhunter") }}
+                        <div class="form-text">📂 <strong>Manual Training Folder:</strong> Drag recruitment emails here to automatically add senders to your headhunter list. These emails will then be moved to HeadHunt folder.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-end">
+                <a href="{{ url_for('accounts.list_accounts') }}" class="btn btn-secondary me-2">Cancel</a>
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const testBtn = document.getElementById('testConnectionBtn');
+    const statusDiv = document.getElementById('connectionStatus');
+    
+    // Auto-fill username with email when email changes
+    const emailField = document.getElementById('email');
+    const usernameField = document.getElementById('username');
+    
+    emailField.addEventListener('change', function() {
+        if (!usernameField.value) {
+            usernameField.value = emailField.value;
+        }
+    });
+    
+    // Test connection functionality
+    testBtn.addEventListener('click', async function() {
+        const formData = {
+            email: document.getElementById('email').value,
+            server: document.getElementById('server').value,
+            port: parseInt(document.getElementById('port').value),
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+            use_ssl: document.getElementById('use_ssl').value
+        };
+        
+        // Validate required fields
+        if (!formData.email || !formData.server || !formData.username || !formData.password) {
+            showConnectionStatus('Please fill in all required connection fields', false);
+            return;
+        }
+        
+        // Show loading state
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+        
+        try {
+            // Get CSRF token safely
+            const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+            
+            const response = await fetch('/accounts/api/test-connection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Server returned non-JSON response. Please check your session.');
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showConnectionStatus(formatConnectionSuccess(result), true);
+                
+                // Auto-populate folder configuration if suggestions are available
+                if (result.suggested_folders) {
+                    populateFolderSuggestions(result.suggested_folders);
+                }
+            } else {
+                showConnectionStatus(result.error, false);
+            }
+            
+        } catch (error) {
+            showConnectionStatus('Network error: ' + error.message, false);
+        } finally {
+            // Restore button state
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="bi bi-plug"></i> Test Connection';
+        }
+    });
+    
+    function formatConnectionSuccess(result) {
+        let message = `✓ ${result.message}<br>`;
+        message += `📁 ${result.total_folders} folders detected on email server`;
+        
+        if (result.folder_structure) {
+            message += `<br>🏗️ Structure: ${result.folder_structure.pattern}`;
+            
+            if (result.folder_structure.delimiter !== '.') {
+                message += ` (delimiter: "${result.folder_structure.delimiter}")`;
+            }
+        }
+        
+        if (result.suggested_folders) {
+            message += '<br>🎯 <strong>Folder configuration auto-populated below!</strong>';
+        }
+        
+        if (result.folders && result.folders.length > 0) {
+            message += '<br><br><strong>Existing server folders (sample):</strong><br>';
+            result.folders.slice(0, 8).forEach(folder => {
+                message += `• ${folder.name}<br>`;
+            });
+            
+            if (result.total_folders > 8) {
+                message += `... and ${result.total_folders - 8} more server folders`;
+            }
+        }
+        
+        return message;
+    }
+    
+    function populateFolderSuggestions(suggestions) {
+        // Only populate empty fields to avoid overwriting user changes
+        Object.keys(suggestions).forEach(fieldName => {
+            const field = document.getElementById(fieldName);
+            if (field && !field.value.trim()) {
+                field.value = suggestions[fieldName];
+                
+                // Add visual indication that field was auto-populated
+                field.style.backgroundColor = '#e8f5e8';
+                field.style.borderColor = '#28a745';
+                
+                // Remove highlight after 3 seconds
+                setTimeout(() => {
+                    field.style.backgroundColor = '';
+                    field.style.borderColor = '';
+                }, 3000);
+            }
+        });
+        
+        // Show notification
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-success alert-dismissible fade show mt-3';
+        notification.innerHTML = `
+            <i class="bi bi-check-circle"></i> <strong>Auto-configured!</strong> 
+            Folder paths have been populated based on your email server structure.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert notification after the folder configuration section
+        const folderGrid = document.querySelector('.folder-grid');
+        const folderSection = folderGrid ? folderGrid.closest('.form-section') : null;
+        if (folderSection) {
+            folderSection.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+    }
+
+    function showConnectionStatus(message, success) {
+        statusDiv.innerHTML = message; // Use innerHTML to support HTML formatting
+        statusDiv.className = 'connection-status ' + (success ? 'connection-success' : 'connection-error');
+        statusDiv.style.display = 'block';
+        
+        // Auto-hide after 15 seconds for success (more time to read folder info)
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, success ? 15000 : 10000);
+    }
+});
+</script>
+{% endblock %}

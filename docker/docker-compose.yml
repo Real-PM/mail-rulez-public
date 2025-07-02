@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  mail-rulez:
+    image: ghcr.io/real-pm/mail-rulez:latest
+    container_name: mail-rulez
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      - mail_rulez_data:/app/data
+      - mail_rulez_lists:/app/lists
+      - mail_rulez_logs:/app/logs
+      - mail_rulez_config:/app/config
+    environment:
+      - PORT=${PORT:-5001}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Keys will be auto-generated if not provided
+      - MASTER_KEY=${MASTER_KEY:-}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-}
+    healthcheck:
+      test: ["CMD", "./healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+volumes:
+  mail_rulez_data:
+  mail_rulez_lists:
+  mail_rulez_logs:
+  mail_rulez_config:

@@ -1,0 +1,30 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Access Forbidden - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container text-center">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="error-template">
+                <h1><i class="bi bi-shield-exclamation text-danger"></i></h1>
+                <h2>403 Forbidden</h2>
+                <div class="error-details">
+                    You don't have permission to access this resource.
+                </div>
+                <div class="error-actions mt-4">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                        <i class="bi bi-box-arrow-in-right"></i> Login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

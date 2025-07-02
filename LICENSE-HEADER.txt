@@ -1,0 +1,52 @@
+# Mail-Rulez License Header
+# Use this header in all source code files
+
+"""
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+
+This software is dual-licensed:
+
+1. AGPL v3 for open source/self-hosted use
+2. Commercial license for hosted services and enterprise use
+
+For commercial licensing, contact: license@mail-rulez.com
+See LICENSE-DUAL for complete licensing information.
+
+"Mail-Rulez" is a trademark of Real Project Management Solutions
+"""
+
+# For Python files, use the above format
+# For other file types, adapt the comment style accordingly:
+
+# JavaScript/CSS files:
+/*
+ * Mail-Rulez - Intelligent Email Management System
+ * Copyright (c) 2024 Real Project Management Solutions
+ * 
+ * This software is dual-licensed:
+ * 1. AGPL v3 for open source/self-hosted use
+ * 2. Commercial license for hosted services and enterprise use
+ * 
+ * For commercial licensing, contact: license@mail-rulez.com
+ * See LICENSE-DUAL for complete licensing information.
+ */
+
+# HTML files:
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+
+This software is dual-licensed. See LICENSE-DUAL for details.
+Commercial licensing: license@mail-rulez.com
+-->
+
+# Shell scripts:
+#!/bin/bash
+#
+# Mail-Rulez - Intelligent Email Management System
+# Copyright (c) 2024 Real Project Management Solutions
+#
+# This software is dual-licensed. See LICENSE-DUAL for details.
+# Commercial licensing: license@mail-rulez.com
+#
