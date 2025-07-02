@@ -1,0 +1,312 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Edit {{ policy.name }} - {{ super() }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.retention-timeline {
+    background: linear-gradient(90deg, #e3f2fd 0%, #fff3e0 50%, #ffebee 100%);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.retention-stage {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+.stage-active { background: #e3f2fd; color: #0d47a1; }
+.stage-trash { background: #fff3e0; color: #e65100; }
+.stage-delete { background: #ffebee; color: #c62828; }
+
+.policy-info {
+    background: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.danger-zone {
+    background: #fff5f5;
+    border: 2px solid #fed7d7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 2rem;
+}
+
+.stats-section {
+    background: #e7f3ff;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-pencil"></i> Edit {{ 'Folder' if policy.folder_pattern else 'Rule-Based' }} Retention Policy</h1>
+                <div>
+                    <a href="{{ url_for('retention.retention_preview') }}" class="btn btn-info me-2">
+                        <i class="bi bi-eye"></i> Preview Impact
+                    </a>
+                    <a href="{{ url_for('retention.policies_overview') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Policies
+                    </a>
+                </div>
+            </div>
+
+            <!-- Policy Statistics -->
+            {% if policy.last_applied or policy.emails_moved_to_trash > 0 or policy.emails_permanently_deleted > 0 %}
+            <div class="stats-section">
+                <h6><i class="bi bi-graph-up"></i> Policy Statistics</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Emails Moved to Trash:</strong><br>
+                        <span class="text-primary fs-4">{{ policy.emails_moved_to_trash or 0 }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Emails Permanently Deleted:</strong><br>
+                        <span class="text-danger fs-4">{{ policy.emails_permanently_deleted or 0 }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Last Applied:</strong><br>
+                        <span class="text-muted">{{ policy.last_applied or 'Never' }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="policy-info">
+                <h5><i class="bi bi-info-circle"></i> Policy Information</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Policy ID:</strong> {{ policy.id }}<br>
+                        <strong>Created:</strong> {{ policy.created_at or 'Unknown' }}<br>
+                        <strong>Type:</strong> {{ 'Folder-Level' if policy.folder_pattern else 'Rule-Based' }}
+                    </div>
+                    <div class="col-md-6">
+                        {% if policy.folder_pattern %}
+                            <strong>Target Folder:</strong> {{ policy.folder_pattern }}<br>
+                        {% else %}
+                            <strong>Associated Rule:</strong> {{ policy.rule_id }}<br>
+                        {% endif %}
+                        <strong>Status:</strong> 
+                        <span class="badge bg-{{ 'success' if policy.active else 'secondary' }}">
+                            {{ 'Active' if policy.active else 'Inactive' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" class="needs-validation" novalidate>
+                {{ form.hidden_tag() }}
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Edit Policy Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.name.label(class="form-label") }}
+                                    {{ form.name(class="form-control") }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                {% if policy.folder_pattern %}
+                                    <div class="mb-3">
+                                        {{ form.folder_pattern.label(class="form-label") }}
+                                        {{ form.folder_pattern(class="form-control") }}
+                                        <small class="form-text text-muted">
+                                            Enter the exact folder name (case-sensitive). Use IMAP folder notation.
+                                        </small>
+                                        {% if form.folder_pattern.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.folder_pattern.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="mb-3">
+                                        {{ form.rule_id.label(class="form-label") }}
+                                        {{ form.rule_id(class="form-select", onchange="updateRuleInfo()") }}
+                                        {% if form.rule_id.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.rule_id.errors %}{{ error }}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows="3") }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.description.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.retention_days.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.retention_days(class="form-control", oninput="updateTimeline()") }}
+                                        <span class="input-group-text">days</span>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        How many days to keep emails before moving to trash.
+                                    </small>
+                                    {% if form.retention_days.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.retention_days.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.trash_retention_days.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.trash_retention_days(class="form-control", oninput="updateTimeline()") }}
+                                        <span class="input-group-text">days</span>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        How many days to keep emails in trash before permanent deletion.
+                                    </small>
+                                    {% if form.trash_retention_days.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.trash_retention_days.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Retention Timeline Visualization -->
+                        <div class="retention-timeline">
+                            <h6><i class="bi bi-diagram-3"></i> Updated Retention Timeline</h6>
+                            <div id="timeline-display">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                            <small class="text-muted d-block mt-2">
+                                <strong>Total lifecycle:</strong> <span id="total-days"></span> days from arrival to permanent deletion
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.active(class="form-check-input") }}
+                                {{ form.active.label(class="form-check-label") }}
+                                <small class="form-text text-muted">
+                                    Inactive policies are not executed automatically but can be run manually.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="danger-zone">
+                    <h6><i class="bi bi-exclamation-triangle text-danger"></i> Modification Warning</h6>
+                    <p><strong>Changing retention periods affects future operations only.</strong> 
+                       Emails already in trash will still be deleted according to their original schedule.</p>
+                    <ul class="mb-0">
+                        <li><strong>Shorter periods:</strong> New emails will be moved to trash sooner than before.</li>
+                        <li><strong>Longer periods:</strong> New emails will be kept longer than before.</li>
+                        <li><strong>Deactivating:</strong> Stops automatic retention but doesn't affect existing trash schedule.</li>
+                    </ul>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('retention.policies_overview') }}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                    <div>
+                        <button type="button" class="btn btn-warning me-2" onclick="previewChanges()">
+                            <i class="bi bi-eye"></i> Preview Changes
+                        </button>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateTimeline() {
+    const retentionDays = parseInt(document.getElementById('retention_days').value) || {{ policy.retention_days }};
+    const trashDays = parseInt(document.getElementById('trash_retention_days').value) || {{ policy.trash_retention_days }};
+    const totalDays = retentionDays + trashDays;
+    
+    const folderType = {{ 'true' if policy.folder_pattern else 'false' }};
+    const locationText = folderType ? 'Folder' : 'Destination Folder';
+    
+    const timeline = document.getElementById('timeline-display');
+    timeline.innerHTML = `
+        <span class="retention-stage stage-active">Day 0-${retentionDays}: Active in ${locationText}</span>
+        <i class="bi bi-arrow-right"></i>
+        <span class="retention-stage stage-trash">Day ${retentionDays}-${totalDays}: Recoverable in Trash</span>
+        <i class="bi bi-arrow-right"></i>
+        <span class="retention-stage stage-delete">Day ${totalDays}+: Permanently Deleted</span>
+    `;
+    
+    document.getElementById('total-days').textContent = totalDays;
+}
+
+function updateRuleInfo() {
+    // Update timeline when rule changes
+    updateTimeline();
+}
+
+function previewChanges() {
+    // This could open a modal or redirect to preview with current form values
+    window.open('{{ url_for("retention.retention_preview") }}', '_blank');
+}
+
+// Form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Initialize timeline
+document.addEventListener('DOMContentLoaded', updateTimeline);
+</script>
+{% endblock %}

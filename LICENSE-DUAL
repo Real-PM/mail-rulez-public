@@ -1,0 +1,68 @@
+# Mail-Rulez Dual License
+
+Mail-Rulez is available under two different licenses:
+
+## 1. Open Source License (AGPL v3)
+
+For open source projects, self-hosted deployments, and non-commercial use, Mail-Rulez is licensed under the GNU Affero General Public License v3.0 (AGPL v3).
+
+**You may use Mail-Rulez under AGPL v3 if you:**
+- Deploy and use Mail-Rulez for personal, educational, or internal business use
+- Self-host the application on your own infrastructure
+- Comply with all AGPL v3 requirements, including:
+  - Making source code available to users if you modify the software
+  - Licensing any modifications under AGPL v3
+  - Not using the software to provide commercial hosting services to third parties
+
+The full text of the AGPL v3 license can be found in the `LICENSE-AGPL` file.
+
+## 2. Commercial License
+
+For commercial hosting services, enterprise deployments, and situations where AGPL v3 requirements cannot be met, Mail-Rulez is available under a commercial license.
+
+**You need a commercial license if you:**
+- Offer Mail-Rulez as a hosted service to customers
+- Want to distribute Mail-Rulez as part of a proprietary product
+- Cannot comply with the AGPL v3 source code sharing requirements
+- Need warranty protection and professional support
+
+**Commercial license benefits:**
+- No obligation to share source code modifications
+- Right to offer hosting services using Mail-Rulez
+- Professional support and maintenance
+- Warranty protection
+- Priority access to new features
+
+For commercial licensing inquiries, please contact: **license@mail-rulez.com**
+
+## Choosing Your License
+
+| Use Case | License Required |
+|----------|------------------|
+| Self-hosting for personal use | AGPL v3 (Free) |
+| Internal company deployment | AGPL v3 (Free) |
+| Educational/research use | AGPL v3 (Free) |
+| Offering hosted email services | Commercial License |
+| Embedding in proprietary software | Commercial License |
+| Cannot share source modifications | Commercial License |
+
+## Copyright Notice
+
+Copyright (c) 2024 Real Project Management Solutions
+
+All rights reserved. This software and associated documentation files (the "Software") contain proprietary and confidential information owned by Real Project Management Solutions.
+
+## Trademark
+
+"Mail-Rulez" is a trademark of Real Project Management Solutions. Use of the trademark is subject to our trademark policy.
+
+## Contact
+
+- **General inquiries:** info@mail-rulez.com
+- **Commercial licensing:** license@mail-rulez.com
+- **Technical support:** support@mail-rulez.com
+- **Website:** https://mail-rulez.com
+
+---
+
+*This dual licensing approach ensures that Mail-Rulez remains free and open for the community while enabling sustainable commercial development.*

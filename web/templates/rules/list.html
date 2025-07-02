@@ -1,0 +1,250 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Email Rules - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.rule-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 40px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 4px solid #28a745;
+}
+.rule-card.inactive {
+    border-left-color: #6c757d;
+    opacity: 0.7;
+}
+.rule-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+.rule-priority {
+    background: #e9ecef;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+.rule-conditions, .rule-actions {
+    margin-bottom: 10px;
+}
+.condition-item, .action-item {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    margin-top: 20px;
+    margin-bottom: 30px;
+}
+.template-card {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    min-height: 200px;
+}
+.template-card:hover {
+    border-color: #28a745;
+    background: #d4edda;
+}
+.rules-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="rules-header pt-3 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h2"><i class="bi bi-gear"></i> Email Processing Rules</h1>
+            <p class="text-muted">Create and manage custom rules for automatic email processing</p>
+        </div>
+        <div class="btn-toolbar">
+            <a href="{{ url_for('rules.add_rule') }}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> Create Custom Rule
+            </a>
+        </div>
+    </div>
+
+    {% if rules %}
+        <div class="row">
+            <div class="col-12">
+                <h3 class="mb-4">Active Rules <span class="badge bg-secondary">{{ rules|length }}</span></h3>
+                
+                {% for rule in rules %}
+                <div class="rule-card{% if not rule.active %} inactive{% endif %}">
+                    <div class="rule-header">
+                        <div>
+                            <h5 class="mb-1">
+                                {{ rule.name }}
+                                {% if not rule.active %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </h5>
+                            {% if rule.description %}
+                                <p class="text-muted mb-0">{{ rule.description }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="rule-priority me-3">Priority: {{ rule.priority }}</span>
+                            <span class="badge bg-info me-3">
+                                {% if rule.account_email %}
+                                    Account: {{ rule.account_email }}
+                                {% else %}
+                                    All Accounts
+                                {% endif %}
+                            </span>
+                            <div class="btn-group" style="gap: 8px;">
+                                <a href="{{ url_for('rules.edit_rule', rule_id=rule.id) }}" 
+                                   class="btn btn-outline-primary btn-sm me-2">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a>
+                                <form method="POST" action="{{ url_for('rules.delete_rule', rule_id=rule.id) }}" 
+                                      style="display: inline;"
+                                      onsubmit="return confirm('Are you sure you want to delete this rule?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-funnel"></i> Conditions ({{ rule.condition_logic }})</h6>
+                            <div class="rule-conditions">
+                                {% for condition in rule.conditions %}
+                                <div class="condition-item">
+                                    <strong>{{ condition.type.value.replace('_', ' ').title() }}:</strong>
+                                    "{{ condition.value }}"
+                                    {% if condition.case_sensitive %}<em>(case sensitive)</em>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-arrow-right"></i> Actions</h6>
+                            <div class="rule-actions">
+                                {% for action in rule.actions %}
+                                <div class="action-item">
+                                    <strong>{{ action.type.value.replace('_', ' ').title() }}:</strong>
+                                    {{ action.target }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Rule Templates Section -->
+    <div class="row" style="margin-top: 80px;">
+        <div class="col-12">
+            <h3><i class="bi bi-layout-text-sidebar-reverse"></i> Quick Start Templates</h3>
+            <p class="text-muted mb-3">Create rules instantly from pre-built templates for common use cases</p>
+            
+            <!-- Workflow Explanation -->
+            <div class="mb-4">
+                <h6 class="text-muted mb-3"><i class="bi bi-info-circle"></i> How Custom Lists Work</h6>
+                <p class="text-muted mb-2">When you create a rule that adds senders to a custom list (like "packages.txt" or "family.txt"):</p>
+                <ul class="text-muted mb-0">
+                    <li><strong>List files are created automatically</strong> - no need for a separate "CREATE_LIST" action</li>
+                    <li><strong>One action does it all</strong> - "Add to List: family.txt" will create family.txt if needed and add the sender</li>
+                    <li><strong>Lists appear in List Management</strong> - custom lists will show up automatically for manual management</li>
+                    <li><strong>Use descriptive names</strong> - "family.txt", "work-colleagues.txt", "newsletters.txt", etc.</li>
+                </ul>
+            </div>
+            
+            <div class="template-grid">
+                {% for template_name, template in templates.items() %}
+                <div class="template-card">
+                    <h5>
+                        {% if template_name == 'package_delivery' %}
+                            <i class="bi bi-box-seam me-2" style="color: #28a745;"></i>
+                        {% elif template_name == 'receipts_invoices' %}
+                            <i class="bi bi-receipt me-2" style="color: #17a2b8;"></i>
+                        {% elif template_name == 'linkedin' %}
+                            <i class="bi bi-linkedin me-2" style="color: #0077b5;"></i>
+                        {% else %}
+                            <i class="bi bi-gear me-2" style="color: #6c757d;"></i>
+                        {% endif %}
+                        {{ template.name }}
+                    </h5>
+                    <p class="text-muted">{{ template.description }}</p>
+                    <div class="mt-3">
+                        <a href="{{ url_for('rules.create_from_template', template_name=template_name) }}" 
+                           class="btn btn-outline-success">
+                            <i class="bi bi-plus"></i> Create Rule
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% if not rules %}
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-gear" style="font-size: 4rem; color: #dee2e6;"></i>
+                <h3 class="mt-3 text-muted">No Rules Created Yet</h3>
+                <p class="text-muted">Get started by creating a rule from one of the templates above, or create a custom rule.</p>
+                <a href="{{ url_for('rules.add_rule') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create Your First Rule
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects to template cards
+    const templateCards = document.querySelectorAll('.template-card');
+    templateCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

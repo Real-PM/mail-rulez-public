@@ -1,0 +1,456 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Edit Rule: {{ rule.name }} - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.rule-form {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.form-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+.form-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+.section-title {
+    color: #495057;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+.condition-row, .action-row {
+    background: #f8f9fa;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+.add-button {
+    border: 2px dashed #28a745;
+    background: #f8fff9;
+    color: #28a745;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.add-button:hover {
+    background: #d4edda;
+    border-color: #1e7e34;
+}
+.remove-btn {
+    margin-top: 5px;
+}
+.delete-section {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 30px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2"><i class="bi bi-pencil"></i> Edit Rule: {{ rule.name }}</h1>
+        <a href="{{ url_for('rules.list_rules') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Rules
+        </a>
+    </div>
+
+    <div class="rule-form">
+        <form method="POST" id="ruleForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h4 class="section-title"><i class="bi bi-info-circle"></i> Basic Information</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label" for="name">Rule Name</label>
+                            <input type="text" name="name" id="name" class="form-control" value="{{ rule.name }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label" for="account_email">Apply to Account</label>
+                            <select name="account_email" id="account_email" class="form-select" required>
+                                {% for value, label in account_choices %}
+                                    <option value="{{ value }}" {% if rule.account_email == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Choose which account this rule applies to</div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label class="form-label" for="priority">Priority</label>
+                            <input type="number" name="priority" id="priority" class="form-control" value="{{ rule.priority }}" min="1" max="1000">
+                            <div class="form-text">Lower = higher priority</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label class="form-label" for="description">Description</label>
+                            <textarea name="description" id="description" class="form-control" rows="3">{{ rule.description }}</textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label" for="condition_logic">Condition Logic</label>
+                            <select name="condition_logic" id="condition_logic" class="form-select">
+                                <option value="AND" {% if rule.condition_logic == 'AND' %}selected{% endif %}>All conditions must match (AND)</option>
+                                <option value="OR" {% if rule.condition_logic == 'OR' %}selected{% endif %}>Any condition can match (OR)</option>
+                            </select>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="active" id="active" class="form-check-input" {% if rule.active %}checked{% endif %}>
+                            <label class="form-check-label" for="active">Active</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conditions -->
+            <div class="form-section">
+                <h4 class="section-title"><i class="bi bi-funnel"></i> Conditions</h4>
+                <div id="conditions-container">
+                    <!-- Existing conditions will be loaded here -->
+                    {% for condition in rule.conditions %}
+                    <div class="condition-row">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">Condition Type</label>
+                                <select name="conditions-{{ loop.index0 }}-type" class="form-select" required>
+                                    <option value="sender_contains" {% if condition.type.value == 'sender_contains' %}selected{% endif %}>Sender Contains</option>
+                                    <option value="sender_domain" {% if condition.type.value == 'sender_domain' %}selected{% endif %}>Sender Domain</option>
+                                    <option value="sender_exact" {% if condition.type.value == 'sender_exact' %}selected{% endif %}>Sender Exact Match</option>
+                                    <option value="subject_contains" {% if condition.type.value == 'subject_contains' %}selected{% endif %}>Subject Contains</option>
+                                    <option value="subject_exact" {% if condition.type.value == 'subject_exact' %}selected{% endif %}>Subject Exact Match</option>
+                                    <option value="subject_regex" {% if condition.type.value == 'subject_regex' %}selected{% endif %}>Subject Regex</option>
+                                    <option value="content_contains" {% if condition.type.value == 'content_contains' %}selected{% endif %}>Content Contains</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Value</label>
+                                <input type="text" name="conditions-{{ loop.index0 }}-value" class="form-control" value="{{ condition.value }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Case Sensitive</label>
+                                <div class="form-check">
+                                    <input type="checkbox" name="conditions-{{ loop.index0 }}-case_sensitive" class="form-check-input" {% if condition.case_sensitive %}checked{% endif %}>
+                                    <label class="form-check-label">Yes</label>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-outline-danger btn-sm remove-btn" onclick="removeCondition(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="add-button" onclick="addCondition()">
+                    <i class="bi bi-plus-circle"></i> Add Condition
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="form-section">
+                <h4 class="section-title"><i class="bi bi-arrow-right"></i> Actions</h4>
+                <div id="actions-container">
+                    <!-- Existing actions will be loaded here -->
+                    {% for action in rule.actions %}
+                    <div class="action-row">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Action Type</label>
+                                <select name="actions-{{ loop.index0 }}-type" class="form-select" required>
+                                    <option value="move_to_folder" {% if action.type.value == 'move_to_folder' %}selected{% endif %}>Move to Folder</option>
+                                    <option value="add_to_list" {% if action.type.value == 'add_to_list' %}selected{% endif %}>Add to List</option>
+                                    <option value="create_list" {% if action.type.value == 'create_list' %}selected{% endif %}>Create List</option>
+                                </select>
+                            </div>
+                            <div class="col-md-7">
+                                <label class="form-label">Target</label>
+                                <input type="text" name="actions-{{ loop.index0 }}-target" class="form-control" value="{{ action.target }}" placeholder="e.g., INBOX.Packages or packages.txt" required>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-outline-danger btn-sm remove-btn" onclick="removeAction(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="add-button" onclick="addAction()">
+                    <i class="bi bi-plus-circle"></i> Add Action
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-end">
+                <a href="{{ url_for('rules.list_rules') }}" class="btn btn-secondary me-2">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Rule</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Delete Rule Section -->
+    <div class="delete-section">
+        <h5><i class="bi bi-exclamation-triangle text-warning"></i> Danger Zone</h5>
+        <p class="text-muted mb-3">Permanently delete this rule. This action cannot be undone.</p>
+        <form method="POST" action="{{ url_for('rules.delete_rule', rule_id=rule.id) }}" 
+              onsubmit="return confirm('Are you sure you want to delete rule \'{{ rule.name }}\'? This action cannot be undone.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Delete Rule
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let conditionIndex = {{ rule.conditions|length }};
+let actionIndex = {{ rule.actions|length }};
+
+// Condition and Action Type Options
+const conditionTypes = [
+    {value: 'sender_contains', text: 'Sender Contains'},
+    {value: 'sender_domain', text: 'Sender Domain'},
+    {value: 'sender_exact', text: 'Sender Exact Match'},
+    {value: 'subject_contains', text: 'Subject Contains'},
+    {value: 'subject_exact', text: 'Subject Exact Match'},
+    {value: 'subject_regex', text: 'Subject Regex'},
+    {value: 'content_contains', text: 'Content Contains'},
+    {value: 'sender_in_list', text: 'Sender Is In List'}
+];
+
+const actionTypes = [
+    {value: 'move_to_folder', text: 'Move to Folder'},
+    {value: 'add_to_list', text: 'Add to List'},
+    {value: 'create_list', text: 'Create List'}
+];
+
+function addCondition() {
+    const container = document.getElementById('conditions-container');
+    const div = document.createElement('div');
+    div.className = 'condition-row';
+    div.innerHTML = `
+        <div class="row">
+            <div class="col-md-3">
+                <label class="form-label">Condition Type</label>
+                <select name="conditions-${conditionIndex}-type" class="form-select" required>
+                    ${conditionTypes.map(opt => `<option value="${opt.value}">${opt.text}</option>`).join('')}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Value</label>
+                <input type="text" name="conditions-${conditionIndex}-value" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Case Sensitive</label>
+                <div class="form-check">
+                    <input type="checkbox" name="conditions-${conditionIndex}-case_sensitive" class="form-check-input">
+                    <label class="form-check-label">Yes</label>
+                </div>
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-btn" onclick="removeCondition(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
+    conditionIndex++;
+}
+
+function addAction() {
+    const container = document.getElementById('actions-container');
+    const div = document.createElement('div');
+    div.className = 'action-row';
+    div.innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label">Action Type</label>
+                <select name="actions-${actionIndex}-type" class="form-select" onchange="updateActionTarget(this, ${actionIndex})" required>
+                    ${actionTypes.map(opt => `<option value="${opt.value}">${opt.text}</option>`).join('')}
+                </select>
+            </div>
+            <div class="col-md-7">
+                <label class="form-label">Target</label>
+                <div id="action-target-${actionIndex}">
+                    <input type="text" name="actions-${actionIndex}-target" class="form-control" placeholder="e.g., INBOX.Packages or packages.txt" required>
+                </div>
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-btn" onclick="removeAction(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
+    actionIndex++;
+}
+
+function updateActionTarget(selectElement, index) {
+    const actionType = selectElement.value;
+    const targetContainer = document.getElementById(`action-target-${index}`);
+    const accountEmail = document.getElementById('account_email').value;
+    
+    if (actionType === 'move_to_folder') {
+        // Show folder selection for move_to_folder action
+        if (accountEmail) {
+            // Account selected - show folder dropdown with option for custom
+            targetContainer.innerHTML = `
+                <select name="actions-${index}-target" class="form-select" onchange="handleFolderSelection(this, ${index})" required>
+                    <option value="">Select existing folder or enter custom...</option>
+                    <option value="__custom__">Create new folder (enter name below)</option>
+                </select>
+                <div id="custom-folder-${index}" style="display:none;" class="mt-2">
+                    <input type="text" class="form-control" placeholder="e.g., INBOX.NewFolder" 
+                           onchange="updateCustomFolder(this, ${index})">
+                    <small class="form-text text-muted">
+                        Folder will be created if it doesn't exist. Use INBOX.FolderName format.
+                    </small>
+                </div>
+            `;
+            loadFoldersForAccount(accountEmail, index);
+        } else {
+            // No account selected
+            targetContainer.innerHTML = `
+                <input type="text" name="actions-${index}-target" class="form-control" 
+                       placeholder="Select an account first to see available folders" readonly required>
+                <small class="form-text text-warning">
+                    <i class="bi bi-exclamation-triangle"></i> Please select an account first
+                </small>
+            `;
+        }
+    } else {
+        // Default text input for other action types
+        let placeholder = 'Target value';
+        if (actionType === 'add_to_list') {
+            placeholder = 'e.g., family.txt or packages.txt';
+        } else if (actionType === 'forward') {
+            placeholder = 'e.g., admin@example.com';
+        }
+        
+        targetContainer.innerHTML = `
+            <input type="text" name="actions-${index}-target" class="form-control" 
+                   placeholder="${placeholder}" required>
+        `;
+    }
+}
+
+function handleFolderSelection(selectElement, index) {
+    const customContainer = document.getElementById(`custom-folder-${index}`);
+    const hiddenInput = document.querySelector(`input[name="actions-${index}-target"]`);
+    
+    if (selectElement.value === '__custom__') {
+        customContainer.style.display = 'block';
+        if (hiddenInput) hiddenInput.remove(); // Remove hidden input if exists
+    } else {
+        customContainer.style.display = 'none';
+        // Update the actual form value
+        if (!hiddenInput) {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = `actions-${index}-target`;
+            selectElement.parentNode.appendChild(hidden);
+        }
+        document.querySelector(`input[name="actions-${index}-target"]`).value = selectElement.value;
+    }
+}
+
+function updateCustomFolder(inputElement, index) {
+    // Update the hidden input with custom folder name
+    let hiddenInput = document.querySelector(`input[name="actions-${index}-target"]`);
+    if (!hiddenInput) {
+        hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `actions-${index}-target`;
+        inputElement.parentNode.appendChild(hiddenInput);
+    }
+    hiddenInput.value = inputElement.value;
+}
+
+async function loadFoldersForAccount(accountEmail, actionIndex) {
+    try {
+        const response = await fetch(`/api/accounts/${encodeURIComponent(accountEmail)}/folders`);
+        if (response.ok) {
+            const data = await response.json();
+            const select = document.querySelector(`select[name="actions-${actionIndex}-target"]`);
+            
+            // Clear existing options except the first two
+            while (select.options.length > 2) {
+                select.removeChild(select.lastChild);
+            }
+            
+            // Add folder options
+            if (data.folders && data.folders.length > 0) {
+                data.folders.forEach(folder => {
+                    if (folder !== 'INBOX') { // Don't include INBOX as it's the source
+                        const option = document.createElement('option');
+                        option.value = folder;
+                        option.textContent = folder;
+                        select.appendChild(option);
+                    }
+                });
+            } else {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No folders found - use custom folder option';
+                option.disabled = true;
+                select.appendChild(option);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load folders:', error);
+    }
+}
+
+// Update account change handler
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('account_email').addEventListener('change', function() {
+        // Update all existing move_to_folder actions when account changes
+        document.querySelectorAll('select[name$="-type"]').forEach((select, index) => {
+            if (select.value === 'move_to_folder') {
+                updateActionTarget(select, index);
+            }
+        });
+    });
+});
+
+function removeCondition(button) {
+    button.closest('.condition-row').remove();
+}
+
+function removeAction(button) {
+    button.closest('.action-row').remove();
+}
+</script>
+{% endblock %}
