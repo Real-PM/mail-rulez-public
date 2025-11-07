@@ -30,7 +30,7 @@ env-template
 # User data
 data/
 /lists/
-logs/
+/logs/
 config/secure_config.json
 .admin_user
 .reset_token_*

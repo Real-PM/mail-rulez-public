@@ -1,0 +1,430 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Log Management - Mail-Rulez{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Log Management</h2>
+        <div>
+            <button class="btn btn-outline-warning" onclick="cleanupOldLogs()">
+                <i class="fas fa-broom"></i> Cleanup Old Logs
+            </button>
+            <button class="btn btn-outline-info" onclick="refreshStats()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Log Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">{{ log_files|length }}</h5>
+                    <p class="card-text">Total Log Files</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-info">{{ total_size_human }}</h5>
+                    <p class="card-text">Total Size</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-success" id="avg-file-size">-</h5>
+                    <p class="card-text">Average File Size</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-warning" id="retention-period">30 days</h5>
+                    <p class="card-text">Retention Period</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Files Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Log Files</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Size</th>
+                            <th>Lines</th>
+                            <th>Last Modified</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for filename, info in log_files.items() %}
+                        <tr>
+                            <td>
+                                <i class="fas fa-file-alt text-muted me-2"></i>
+                                {{ filename }}
+                                {% if filename.endswith('.log') %}
+                                    <span class="badge bg-primary ms-2">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary ms-2">Rotated</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ info.size_human }}</td>
+                            <td>{{ "{:,}".format(info.lines) }}</td>
+                            <td>{{ info.modified[:19].replace('T', ' ') }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" onclick="viewLog('{{ filename }}')">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                    <button class="btn btn-outline-info" onclick="tailLog('{{ filename }}')">
+                                        <i class="fas fa-stream"></i> Tail
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="searchLog('{{ filename }}')">
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                    <button class="btn btn-outline-success" onclick="downloadLog('{{ filename }}')">
+                                        <i class="fas fa-download"></i> Download
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                {% if not log_files %}
+                <div class="text-center py-4">
+                    <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No log files found</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Viewer Modal -->
+<div class="modal fade" id="logViewerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Log Viewer - <span id="log-filename"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Lines to show:</label>
+                            <select class="form-select" id="lines-select" onchange="updateLogView()">
+                                <option value="50">Last 50 lines</option>
+                                <option value="100" selected>Last 100 lines</option>
+                                <option value="200">Last 200 lines</option>
+                                <option value="500">Last 500 lines</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Auto-refresh:</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()">
+                                <label class="form-check-label" for="auto-refresh">
+                                    Enable auto-refresh (5s)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="log-content-container">
+                    <pre id="log-content" class="bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto;"></pre>
+                </div>
+                <div class="log-info mt-2">
+                    <small class="text-muted" id="log-info"></small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-info" onclick="refreshLogContent()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+                <button type="button" class="btn btn-outline-success" onclick="downloadCurrentLog()">
+                    <i class="fas fa-download"></i> Download
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Modal -->
+<div class="modal fade" id="searchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Search Logs - <span id="search-filename"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="search-query" placeholder="Enter search term...">
+                        <button class="btn btn-primary" onclick="performSearch()">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+                <div id="search-results" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cleanup Modal -->
+<div class="modal fade" id="cleanupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cleanup Old Logs</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Remove log files older than the specified number of days.</p>
+                <div class="mb-3">
+                    <label class="form-label">Days to keep:</label>
+                    <input type="number" class="form-control" id="days-to-keep" value="30" min="1" max="365">
+                    <div class="form-text">Files older than this will be permanently deleted.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="performCleanup()">
+                    <i class="fas fa-broom"></i> Cleanup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentLogFile = '';
+let autoRefreshInterval = null;
+
+function viewLog(filename) {
+    currentLogFile = filename;
+    document.getElementById('log-filename').textContent = filename;
+    const modal = new bootstrap.Modal(document.getElementById('logViewerModal'));
+    modal.show();
+    updateLogView();
+}
+
+function tailLog(filename) {
+    viewLog(filename);
+    document.getElementById('auto-refresh').checked = true;
+    toggleAutoRefresh();
+}
+
+function updateLogView() {
+    const lines = document.getElementById('lines-select').value;
+    
+    fetch(`/logs/api/tail/${currentLogFile}?lines=${lines}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('log-content').textContent = `Error: ${data.error}`;
+                return;
+            }
+            
+            document.getElementById('log-content').textContent = data.lines.join('\n');
+            document.getElementById('log-info').textContent = 
+                `Showing ${data.lines.length} of ${data.total_lines} lines | File size: ${formatBytes(data.file_size)} | Last modified: ${data.last_modified}`;
+            
+            // Auto-scroll to bottom
+            const logContent = document.getElementById('log-content');
+            logContent.scrollTop = logContent.scrollHeight;
+        })
+        .catch(error => {
+            document.getElementById('log-content').textContent = `Error loading log: ${error}`;
+        });
+}
+
+function toggleAutoRefresh() {
+    const enabled = document.getElementById('auto-refresh').checked;
+    
+    if (enabled) {
+        autoRefreshInterval = setInterval(updateLogView, 5000);
+    } else {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+}
+
+function refreshLogContent() {
+    updateLogView();
+}
+
+function downloadCurrentLog() {
+    downloadLog(currentLogFile);
+}
+
+function downloadLog(filename) {
+    window.open(`/logs/api/download/${filename}`, '_blank');
+}
+
+function searchLog(filename) {
+    document.getElementById('search-filename').textContent = filename;
+    currentLogFile = filename;
+    const modal = new bootstrap.Modal(document.getElementById('searchModal'));
+    modal.show();
+    document.getElementById('search-query').focus();
+}
+
+function performSearch() {
+    const query = document.getElementById('search-query').value.trim();
+    if (!query) return;
+    
+    const resultsDiv = document.getElementById('search-results');
+    resultsDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+    
+    fetch(`/logs/api/search/${currentLogFile}?q=${encodeURIComponent(query)}&limit=100`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+            
+            if (data.results.length === 0) {
+                resultsDiv.innerHTML = '<div class="alert alert-info">No results found.</div>';
+                return;
+            }
+            
+            let html = `<div class="alert alert-success">Found ${data.total_found} result(s)</div>`;
+            html += '<div class="list-group">';
+            
+            data.results.forEach(result => {
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <small class="text-muted">Line ${result.line_number}</small>
+                            ${result.timestamp ? `<small class="text-muted">${result.timestamp}</small>` : ''}
+                        </div>
+                        <pre class="mb-0 mt-1">${escapeHtml(result.content)}</pre>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            if (data.truncated) {
+                html += '<div class="alert alert-warning mt-2">Results truncated. Refine your search for more specific results.</div>';
+            }
+            
+            resultsDiv.innerHTML = html;
+        })
+        .catch(error => {
+            resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+        });
+}
+
+function cleanupOldLogs() {
+    const modal = new bootstrap.Modal(document.getElementById('cleanupModal'));
+    modal.show();
+}
+
+function performCleanup() {
+    const daysToKeep = parseInt(document.getElementById('days-to-keep').value);
+    
+    fetch('/logs/api/cleanup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({days_to_keep: daysToKeep})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(`Error: ${data.error}`);
+            return;
+        }
+        
+        alert(`Cleanup completed! Removed ${data.removed_count} old log files.`);
+        location.reload();
+    })
+    .catch(error => {
+        alert(`Error: ${error}`);
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('cleanupModal')).hide();
+}
+
+function refreshStats() {
+    location.reload();
+}
+
+function formatBytes(bytes) {
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 B';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Handle Enter key in search
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('search-query').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+    
+    // Calculate average file size
+    const totalFiles = {{ log_files|length }};
+    const totalBytes = {{ total_size_bytes }};
+    if (totalFiles > 0) {
+        const avgSize = totalBytes / totalFiles;
+        document.getElementById('avg-file-size').textContent = formatBytes(avgSize);
+    } else {
+        document.getElementById('avg-file-size').textContent = 'N/A';
+    }
+});
+
+// Cleanup auto-refresh on modal close
+document.getElementById('logViewerModal').addEventListener('hidden.bs.modal', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+    document.getElementById('auto-refresh').checked = false;
+});
+</script>
+{% endblock %}
