@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import get_config
 from security import get_security_manager
-from logging_config import setup_for_environment, get_logger
+import logging
 
 # Import version information
 try:
@@ -47,8 +47,10 @@ def create_app(config_dir=None, testing=False):
     app = Flask(__name__)
     
     # Setup logging first
-    log_config = setup_for_environment()
-    app.log_config = log_config
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     
     # Configure Flask
     app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-key-change-in-production')
@@ -59,10 +61,9 @@ def create_app(config_dir=None, testing=False):
     # Initialize CSRF protection
     csrf = CSRFProtect(app)
     
-    # DEPLOYMENT TEST LOG - Build 53 verification
-    logger = get_logger(__name__)
-    logger.info("DEPLOYMENT_TEST: Flask app initializing - Build 53 is active")
-    logger.info(f"DEPLOYMENT_TEST: Version {__version__} - Build date {__build_date__} - Commit {__commit_hash__}")
+    # Logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Flask app initializing - Version {__version__} - Build date {__build_date__} - Commit {__commit_hash__}")
     
     # Initialize Mail-Rulez components
     mail_config = get_config(base_dir=config_dir)
