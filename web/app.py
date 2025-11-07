@@ -31,15 +31,22 @@ from config import get_config
 from security import get_security_manager
 import logging
 
-# Import version information
-try:
-    from version import __version__, __base_version__, __build_date__, __commit_hash__
-except ImportError:
-    # Fallback if version.py doesn't exist
-    __version__ = "0.0.0-dev"
-    __base_version__ = "0.0.0"
-    __build_date__ = "unknown"
-    __commit_hash__ = "unknown"
+# Get version from git tags
+def get_version():
+    """Get version from git tags, fallback to dev version"""
+    try:
+        import subprocess
+        version = subprocess.check_output(
+            ['git', 'describe', '--tags', '--always'],
+            stderr=subprocess.DEVNULL,
+            cwd=Path(__file__).parent.parent
+        ).decode('utf-8').strip()
+        # Remove 'v' prefix if present
+        return version.lstrip('v')
+    except Exception:
+        return "dev"
+
+__version__ = get_version()
 
 
 def create_app(config_dir=None, testing=False):
@@ -63,7 +70,7 @@ def create_app(config_dir=None, testing=False):
     
     # Logging
     logger = logging.getLogger(__name__)
-    logger.info(f"Flask app initializing - Version {__version__} - Build date {__build_date__} - Commit {__commit_hash__}")
+    logger.info(f"Flask app initializing - Version {__version__}")
     
     # Initialize Mail-Rulez components
     mail_config = get_config(base_dir=config_dir)
@@ -91,9 +98,7 @@ def create_app(config_dir=None, testing=False):
     def inject_globals():
         return {
             'app_name': 'Mail-Rulez',
-            'version': __base_version__,
-            'build_date': __build_date__,
-            'commit_hash': __commit_hash__,
+            'version': __version__,
             'current_user': get_current_user(),
             'account_count': len(app.mail_config.accounts),
             'lists_dir': str(app.mail_config.lists_dir)

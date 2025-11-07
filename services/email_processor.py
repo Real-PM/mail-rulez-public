@@ -116,11 +116,8 @@ class EmailProcessor:
         }
         
         # Logger with structured context
-        from logging_config import get_logger
-        self.logger = get_logger(
-            f'email_processor.{account_config.email}',
-            account_email=account_config.email
-        )
+        import logging
+        self.logger = logging.getLogger(f'email_processor.{account_config.email}')
         
         # Error tracking
         self.last_error = None

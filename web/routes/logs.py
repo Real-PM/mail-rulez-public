@@ -17,7 +17,7 @@ Log Management Routes for Mail-Rulez Web Interface
 Provides log viewing, management, and monitoring capabilities.
 """
 
-from flask import Blueprint, render_template, jsonify, request, current_app, send_file
+from flask import Blueprint, render_template, jsonify, request, current_app, send_file, redirect, url_for
 from functools import wraps
 import os
 from pathlib import Path
@@ -25,6 +25,11 @@ from datetime import datetime
 import json
 
 logs_bp = Blueprint('logs', __name__)
+
+
+def get_log_dir():
+    """Get log directory path"""
+    return current_app.mail_config.log_dir
 
 
 def login_required(f):
@@ -41,15 +46,26 @@ def login_required(f):
 @login_required
 def logs_overview():
     """Log management overview page"""
-    from logging_config import LogManager
-    
-    manager = LogManager()
-    log_files = manager.get_log_files_info()
-    total_size_bytes, total_size_human = manager.get_total_log_size()
-    
+    log_dir = get_log_dir()
+    log_files = {}
+    total_size = 0
+
+    if log_dir.exists():
+        for log_file in log_dir.glob('*.log*'):
+            if log_file.is_file():
+                stat = log_file.stat()
+                log_files[log_file.name] = {
+                    'size_bytes': stat.st_size,
+                    'size_human': f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB",
+                    'modified': datetime.fromtimestamp(stat.st_mtime).isoformat()
+                }
+                total_size += stat.st_size
+
+    total_size_human = f"{total_size / 1024:.1f} KB" if total_size < 1024*1024 else f"{total_size / (1024*1024):.1f} MB"
+
     return render_template('logs/overview.html',
                          log_files=log_files,
-                         total_size_bytes=total_size_bytes,
+                         total_size_bytes=total_size,
                          total_size_human=total_size_human)
 
 
@@ -57,10 +73,7 @@ def logs_overview():
 @login_required
 def view_log(log_file):
     """View specific log file contents"""
-    from logging_config import LogManager
-    
-    manager = LogManager()
-    log_path = manager.log_dir / log_file
+    log_path = get_log_dir() / log_file
     
     if not log_path.exists() or not log_path.is_file():
         return jsonify({'error': 'Log file not found'}), 404
@@ -94,10 +107,7 @@ def view_log(log_file):
 @login_required
 def api_tail_log(log_file):
     """API endpoint to tail log file (real-time updates)"""
-    from logging_config import LogManager
-    
-    manager = LogManager()
-    log_path = manager.log_dir / log_file
+    log_path = get_log_dir() / log_file
     
     if not log_path.exists():
         return jsonify({'error': 'Log file not found'}), 404
@@ -125,10 +135,7 @@ def api_tail_log(log_file):
 @login_required
 def api_search_log(log_file):
     """Search within log file"""
-    from logging_config import LogManager
-    
-    manager = LogManager()
-    log_path = manager.log_dir / log_file
+    log_path = get_log_dir() / log_file
     
     if not log_path.exists():
         return jsonify({'error': 'Log file not found'}), 404
@@ -172,10 +179,7 @@ def api_search_log(log_file):
 @login_required
 def api_download_log(log_file):
     """Download log file"""
-    from logging_config import LogManager
-    
-    manager = LogManager()
-    log_path = manager.log_dir / log_file
+    log_path = get_log_dir() / log_file
     
     if not log_path.exists():
         return jsonify({'error': 'Log file not found'}), 404
@@ -198,22 +202,26 @@ def api_download_log(log_file):
 @login_required
 def api_cleanup_logs():
     """Clean up old log files"""
-    from logging_config import LogManager
-    
     days_to_keep = request.json.get('days_to_keep', 30)
     days_to_keep = max(1, min(days_to_keep, 365))  # Limit between 1-365 days
-    
+
     try:
-        manager = LogManager()
-        removed_files = manager.cleanup_old_logs(days_to_keep)
-        
+        log_dir = get_log_dir()
+        removed_files = []
+        cutoff_time = datetime.now().timestamp() - (days_to_keep * 24 * 3600)
+
+        for log_file in log_dir.glob('*.log*'):
+            if log_file.is_file() and log_file.stat().st_mtime < cutoff_time:
+                log_file.unlink()
+                removed_files.append(log_file.name)
+
         return jsonify({
             'success': True,
             'removed_files': removed_files,
             'removed_count': len(removed_files),
             'days_to_keep': days_to_keep
         })
-    
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -222,12 +230,23 @@ def api_cleanup_logs():
 @login_required
 def api_log_stats():
     """Get log statistics"""
-    from logging_config import LogManager
-    
     try:
-        manager = LogManager()
-        log_files = manager.get_log_files_info()
-        total_size_bytes, total_size_human = manager.get_total_log_size()
+        log_dir = get_log_dir()
+        log_files = {}
+        total_size_bytes = 0
+
+        if log_dir.exists():
+            for log_file in log_dir.glob('*.log*'):
+                if log_file.is_file():
+                    stat = log_file.stat()
+                    log_files[log_file.name] = {
+                        'size_bytes': stat.st_size,
+                        'size_human': f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB",
+                        'modified': datetime.fromtimestamp(stat.st_mtime).isoformat()
+                    }
+                    total_size_bytes += stat.st_size
+
+        total_size_human = f"{total_size_bytes / 1024:.1f} KB" if total_size_bytes < 1024*1024 else f"{total_size_bytes / (1024*1024):.1f} MB"
         
         # Calculate growth rate and other metrics
         stats = {

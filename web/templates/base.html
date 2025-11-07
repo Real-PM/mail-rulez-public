@@ -69,8 +69,13 @@ Dual-licensed software. See LICENSE-DUAL for details.
                             <i class="bi bi-file-text"></i> Logs
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://docs.mail-rulez.com" target="_blank">
+                            <i class="bi bi-book"></i> Documentation
+                        </a>
+                    </li>
                 </ul>
-                
+
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -107,7 +112,7 @@ Dual-licensed software. See LICENSE-DUAL for details.
     {% if current_user %}
     <footer class="bg-light text-center text-muted py-3 mt-5">
         <div class="container">
-            <small>{{ app_name }} v{{ version }} | {{ account_count }} accounts configured | Built: {{ build_date }} | Build: {{ commit_hash }}</small>
+            <small>{{ app_name }} v{{ version }} | {{ account_count }} accounts configured</small>
         </div>
     </footer>
     {% endif %}
