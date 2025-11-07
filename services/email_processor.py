@@ -546,12 +546,13 @@ class EmailProcessor:
         """
         Manual processing for startup mode - combines all processing types
         This method is called by the dashboard "Process Next 100" button
-        
+
         Returns:
             dict: Comprehensive processing results
         """
+        self.logger.info(f"process_manual_batch called - current state: {self.state}, expected: {ServiceState.RUNNING_STARTUP}")
         if self.state != ServiceState.RUNNING_STARTUP:
-            raise ValueError("Manual batch processing only available in startup mode")
+            raise ValueError(f"Manual batch processing only available in startup mode. Current state: {self.state}")
             
         try:
             start_time = time.time()
