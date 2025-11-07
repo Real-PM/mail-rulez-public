@@ -119,7 +119,6 @@ def create_app(config_dir=None, testing=False):
     from web.routes.lists import lists_bp
     from web.routes.rules import rules_bp
     from web.routes.services import services_bp
-    from web.routes.logs import logs_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/')
@@ -127,7 +126,6 @@ def create_app(config_dir=None, testing=False):
     app.register_blueprint(lists_bp, url_prefix='/lists')
     app.register_blueprint(rules_bp, url_prefix='/rules')
     app.register_blueprint(services_bp)
-    app.register_blueprint(logs_bp)
     
     
     # Exempt API services from CSRF protection
