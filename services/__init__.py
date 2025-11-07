@@ -20,6 +20,5 @@ and centralized scheduling for web-managed email processing.
 
 from .email_processor import EmailProcessor
 from .task_manager import TaskManager
-from .scheduler_manager import SchedulerManager
 
-__all__ = ['EmailProcessor', 'TaskManager', 'SchedulerManager']
+__all__ = ['EmailProcessor', 'TaskManager']

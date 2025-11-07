@@ -58,19 +58,13 @@ Dual-licensed software. See LICENSE-DUAL for details.
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint and 'rules' in request.endpoint %}active{% endif %}" 
+                        <a class="nav-link {% if request.endpoint and 'rules' in request.endpoint %}active{% endif %}"
                            href="{{ url_for('rules.list_rules') }}">
                             <i class="bi bi-gear"></i> Rules
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint and 'retention' in request.endpoint %}active{% endif %}" 
-                           href="{{ url_for('retention.policies_overview') }}">
-                            <i class="bi bi-clock-history"></i> Retention
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint and 'logs' in request.endpoint %}active{% endif %}" 
+                        <a class="nav-link {% if request.endpoint and 'logs' in request.endpoint %}active{% endif %}"
                            href="{{ url_for('logs.logs_overview') }}">
                             <i class="bi bi-file-text"></i> Logs
                         </a>

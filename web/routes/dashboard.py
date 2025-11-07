@@ -61,13 +61,17 @@ def overview():
     
     # Get service mode information
     service_info = get_service_info()
-    
+
+    # Get account details for table
+    accounts = get_account_details()
+
     return render_template('dashboard/overview.html',
                          stats=stats,
                          processing_stats=processing_stats,
                          recent_activity=recent_activity,
                          account_count=account_stats.get('active_accounts', 0),
-                         service_info=service_info)
+                         service_info=service_info,
+                         accounts=accounts)
 
 
 @dashboard_bp.route('/api/stats')
@@ -450,3 +454,63 @@ def get_service_info():
             'maintenance_accounts': 0,
             'total_accounts': 0
         }
+
+
+def get_account_details():
+    """Get detailed account information for dashboard table"""
+    try:
+        from services.task_manager import get_task_manager
+
+        task_manager = get_task_manager()
+        config = current_app.mail_config
+
+        accounts_list = []
+
+        # Get accounts from config
+        for account in config.accounts:
+            account_dict = {
+                'email': account.email,
+                'server': account.server,
+                'status': 'stopped',
+                'mode': 'unknown',
+                'last_run': None
+            }
+
+            # Get status from task manager if available
+            if task_manager:
+                try:
+                    status = task_manager.get_all_status()
+                    if status and 'accounts' in status and account.email in status['accounts']:
+                        account_status = status['accounts'][account.email]
+                        if account_status:
+                            # Map state to status
+                            state = account_status.get('state', 'stopped')
+                            if state in ['running_startup', 'running_maintenance', 'starting']:
+                                account_dict['status'] = 'running'
+                            elif state == 'error':
+                                account_dict['status'] = 'error'
+                            else:
+                                account_dict['status'] = 'stopped'
+
+                            # Get mode
+                            account_dict['mode'] = account_status.get('mode', 'unknown')
+
+                            # Get last run time from stats
+                            if 'stats' in account_status and account_status['stats']:
+                                last_run_str = account_status['stats'].get('last_run')
+                                if last_run_str:
+                                    try:
+                                        last_run = datetime.fromisoformat(last_run_str)
+                                        account_dict['last_run'] = last_run.strftime('%Y-%m-%d %H:%M')
+                                    except (ValueError, TypeError):
+                                        pass
+                except Exception as e:
+                    current_app.logger.warning(f"Error getting status for {account.email}: {e}")
+
+            accounts_list.append(account_dict)
+
+        return accounts_list
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting account details: {e}", exc_info=True)
+        return []

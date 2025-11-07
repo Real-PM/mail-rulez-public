@@ -49,11 +49,11 @@ Dual-licensed software. See LICENSE-DUAL for details.
                         <div class="d-grid">
                             {{ form.submit(class="btn btn-primary") }}
                         </div>
-                        
+
                         <div class="text-center mt-3">
-                            <a href="{{ url_for('auth.password_reset_request') }}" class="text-muted">
-                                <i class="bi bi-key"></i> Forgot your password?
-                            </a>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> Forgot password? Use the CLI reset tool on the server
+                            </small>
                         </div>
                     </form>
                 </div>
