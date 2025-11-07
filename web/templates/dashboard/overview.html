@@ -199,26 +199,23 @@ async function loadBatchProcessingControls() {
     }
 }
 
-async function buildBatchProcessingControls(accounts) {
+function buildBatchProcessingControls(accounts) {
     const container = document.getElementById('batch-processing-accounts');
 
-    // Build UI immediately with loading indicators
     let html = '';
     for (const accountEmail of accounts) {
-        const safeEmail = accountEmail.replace(/[^a-zA-Z0-9]/g, '_');
         html += `
             <div class="row mb-3 account-batch-control" data-account="${accountEmail}">
                 <div class="col-md-6">
                     <h6>${accountEmail}</h6>
                     <small class="text-muted">
-                        Inbox: <span class="inbox-count" id="inbox-count-${safeEmail}">Loading...</span> emails
+                        Process emails from inbox in batches
                     </small>
                 </div>
                 <div class="col-md-6 text-end">
                     <div>
                         <button class="btn btn-primary btn-sm process-batch-btn"
                                 data-account="${accountEmail}"
-                                disabled
                                 onclick="processBatch('${accountEmail}')">
                             <i class="bi bi-play-circle"></i> Process Next 100
                         </button>
@@ -233,49 +230,6 @@ async function buildBatchProcessingControls(accounts) {
     }
 
     container.innerHTML = html;
-
-    // Load inbox counts asynchronously in parallel
-    const countPromises = accounts.map(async (accountEmail) => {
-        const safeEmail = accountEmail.replace(/[^a-zA-Z0-9]/g, '_');
-        const countSpan = document.getElementById(`inbox-count-${safeEmail}`);
-        const button = document.querySelector(`button[data-account="${accountEmail}"]`);
-
-        try {
-            // Add timeout to inbox count request
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for IMAP operations
-
-            const countResponse = await fetch(`/api/services/accounts/${encodeURIComponent(accountEmail)}/inbox-count`, {
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            const countData = await countResponse.json();
-            if (countData.success) {
-                const inboxCount = countData.data.inbox_count;
-                countSpan.textContent = inboxCount;
-
-                // Enable button if there are emails to process
-                if (inboxCount > 0) {
-                    button.disabled = false;
-                } else {
-                    button.innerHTML = '<i class="bi bi-check-circle"></i> Inbox Empty';
-                }
-            } else {
-                throw new Error(countData.error || 'Failed to get inbox count');
-            }
-        } catch (error) {
-            console.warn(`Could not get inbox count for ${accountEmail}:`, error);
-            countSpan.textContent = 'Error';
-            countSpan.className = 'inbox-count text-danger';
-            button.disabled = false; // Allow user to try anyway
-        }
-    });
-
-    // Wait for all counts to complete (but don't block the UI)
-    Promise.allSettled(countPromises).then(() => {
-        console.log('All inbox counts loaded');
-    });
 }
 
 async function processBatch(accountEmail) {
