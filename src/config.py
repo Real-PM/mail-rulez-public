@@ -61,6 +61,7 @@ class Config:
         # Set up directory paths with environment variable support
         self.data_dir = Path(os.getenv('MAIL_RULEZ_DATA_DIR', self.base_dir / "data"))
         self.lists_dir = Path(os.getenv('MAIL_RULEZ_LISTS_DIR', self.base_dir / "lists"))
+        self.log_dir = Path(os.getenv('MAIL_RULEZ_LOG_DIR', self.base_dir / "logs"))
         self.config_dir = Path(os.getenv('MAIL_RULEZ_CONFIG_DIR', self.base_dir))
         self.backups_dir = Path(os.getenv('MAIL_RULEZ_BACKUPS_DIR', self.base_dir / "backups"))
         

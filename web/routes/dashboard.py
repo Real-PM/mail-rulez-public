@@ -469,6 +469,7 @@ def get_account_details():
         # Get accounts from config
         for account in config.accounts:
             account_dict = {
+                'name': account.name,
                 'email': account.email,
                 'server': account.server,
                 'status': 'stopped',

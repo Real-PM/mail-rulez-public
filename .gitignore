@@ -29,7 +29,7 @@ env-template
 
 # User data
 data/
-lists/
+/lists/
 logs/
 config/secure_config.json
 .admin_user

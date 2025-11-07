@@ -1,0 +1,757 @@
+<!--
+Mail-Rulez - Intelligent Email Management System
+Copyright (c) 2024 Real Project Management Solutions
+Dual-licensed software. See LICENSE-DUAL for details.
+-->
+
+{% extends "base.html" %}
+
+{% block title %}List Management - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.list-container {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    height: 400px;
+    padding: 15px;
+    margin-bottom: 80px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+.list-container.drag-over {
+    border-color: #007bff;
+    background: #e3f2fd;
+}
+.list-items {
+    overflow-y: auto;
+    flex: 1;
+    margin-top: 10px;
+}
+.list-item {
+    background: white !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 4px !important;
+    padding: 8px 12px !important;
+    margin: 6px 0 !important;
+    cursor: grab !important;
+    transition: all 0.2s ease !important;
+    position: relative !important;
+    min-height: 36px !important;
+    /* Ensure proper stacking context for absolute children */
+    z-index: 1 !important;
+}
+.list-item:hover {
+    background: #f1f3f4 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.list-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing !important;
+}
+.conflict-item {
+    border-left: 4px solid #dc3545 !important;
+    background: #fff5f5 !important;
+}
+/* Debug: Make item-actions visible first to test positioning */
+.list-item .item-actions {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    opacity: 1 !important; /* Temporarily visible for debugging */
+    transition: opacity 0.2s ease-in-out !important;
+    z-index: 10 !important;
+    background: rgba(255,0,0,0.1) !important; /* Debug background */
+}
+.list-item:hover .item-actions {
+    background: rgba(0,255,0,0.3) !important; /* Green on hover */
+}
+.list-item span {
+    display: block;
+    word-break: break-all;
+    padding-right: 40px; /* Space for hover button */
+}
+.add-email-form {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.list-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.list-stats {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+.conflict-panel {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2"><i class="bi bi-list-check"></i> List Management</h1>
+        <button type="button" class="btn btn-outline-secondary" id="refreshBtn">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+
+    <br>
+
+    <!-- Add Email Form -->
+    <div class="add-email-form">
+        <h5><i class="bi bi-plus-circle"></i> Add Email Address</h5>
+        <form id="addEmailForm" class="row g-2">
+            <div class="col-md-4">
+                <input type="email" class="form-control" id="emailInput" placeholder="email@example.com" required>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="listSelect" required>
+                    <option value="">Select list...</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary" id="addEmailBtn">
+                    <i class="bi bi-plus"></i> Add Email
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <br>
+
+    <!-- Conflicts Panel -->
+    <div id="conflictsPanel" class="conflict-panel" style="display: none;">
+        <h5><i class="bi bi-exclamation-triangle text-warning"></i> Conflicts Detected</h5>
+        <p>The following email addresses appear in multiple lists. Choose how to resolve each conflict:</p>
+        <div id="conflictsList"></div>
+        <button class="btn btn-warning" id="resolveConflictsBtn">
+            <i class="bi bi-check-circle"></i> Apply Resolution Choices
+        </button>
+    </div>
+
+    <br>
+
+    <!-- Lists Grid -->
+    <div class="row" id="listsContainer">
+        <!-- Lists will be populated by JavaScript -->
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="text-center py-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+class ListManager {
+    constructor() {
+        this.lists = {};
+        this.conflicts = {};
+        this.draggedEmail = null;
+        this.draggedFromList = null;
+        this.init();
+    }
+
+    getCSRFHeaders() {
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
+        }
+        return headers;
+    }
+
+    async init() {
+        await this.loadData();
+        this.setupEventListeners();
+        this.renderLists();
+        this.populateListSelect();
+        this.checkConflicts();
+    }
+
+    async loadData() {
+        try {
+            const response = await fetch('/lists/api/data');
+            
+            if (response.status === 302) {
+                this.showError('Please log in first');
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.lists = data.lists;
+                this.conflicts = data.conflicts;
+            } else {
+                this.showError('Failed to load list data: ' + data.error);
+            }
+        } catch (error) {
+            this.showError('Network error: ' + error.message);
+        }
+    }
+
+    setupEventListeners() {
+        // Add email form
+        document.getElementById('addEmailForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.addEmail();
+        });
+
+        // Refresh button
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            this.refresh();
+        });
+
+        // Apply conflict resolution
+        document.getElementById('resolveConflictsBtn').addEventListener('click', () => {
+            this.applyConflictResolution();
+        });
+    }
+
+    renderLists() {
+        const container = document.getElementById('listsContainer');
+        container.innerHTML = '';
+
+        Object.entries(this.lists).forEach(([listName, listData]) => {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4 mb-4';
+            
+            const conflictEmails = this.getConflictEmailsForList(listName);
+            
+            col.innerHTML = `
+                <div class="list-container" data-list="${listName}">
+                    <div class="list-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-${this.getListIcon(listName)}"></i> 
+                            ${this.formatListName(listName)}
+                        </h5>
+                        <span class="list-stats badge bg-secondary">
+                            ${listData.entries.length} emails
+                        </span>
+                    </div>
+                    <div class="list-items" data-list="${listName}">
+                        ${listData.entries.map((email, index) => {
+                            const actionId = `action-${listName}-${index}`;
+                            return `<div class="list-item ${conflictEmails.includes(email) ? 'conflict-item' : ''}" 
+                                  draggable="true" data-email="${email}"
+                                  data-action-id="${actionId}"
+                                  style="position: relative !important;">
+                                <span>${email}</span>
+                                <div id="${actionId}" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); opacity:0; transition:opacity 0.2s ease-in-out; z-index:10;">
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            data-email="${email}" data-list="${listName}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(col);
+        });
+
+        // Setup drag and drop
+        this.setupDragAndDrop();
+        this.hideLoading();
+    }
+
+    setupDragAndDrop() {
+        // Make list items draggable
+        document.querySelectorAll('.list-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                // Ensure we have the email data
+                this.draggedEmail = item.dataset.email;
+                this.draggedFromList = item.closest('.list-container').dataset.list;
+                item.classList.add('dragging');
+                
+                // Set drag data for better browser support
+                e.dataTransfer.setData('text/plain', this.draggedEmail);
+                e.dataTransfer.effectAllowed = 'move';
+                
+                console.log('Drag started:', this.draggedEmail, 'from', this.draggedFromList);
+            });
+
+            item.addEventListener('dragend', (e) => {
+                item.classList.remove('dragging');
+                console.log('Drag ended');
+                // Don't clear draggedEmail here - let the drop handler do it
+            });
+
+            // Add hover functionality for action buttons
+            const actionId = item.dataset.actionId;
+            if (actionId) {
+                console.log('Setting up hover for:', actionId);
+                
+                const showAction = () => {
+                    const actionEl = document.getElementById(actionId);
+                    if (actionEl) {
+                        actionEl.style.opacity = '1';
+                    }
+                };
+                
+                const hideAction = () => {
+                    const actionEl = document.getElementById(actionId);
+                    if (actionEl) {
+                        actionEl.style.opacity = '0';
+                    }
+                };
+                
+                // Remove any existing listeners first
+                item.removeEventListener('mouseenter', showAction);
+                item.removeEventListener('mouseleave', hideAction);
+                
+                // Add new listeners
+                item.addEventListener('mouseenter', showAction);
+                item.addEventListener('mouseleave', hideAction);
+                
+                // Add click handler for remove button
+                const removeBtn = document.querySelector(`#${actionId} button`);
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const email = removeBtn.dataset.email;
+                        const listName = removeBtn.dataset.list;
+                        console.log('Remove button clicked:', email, 'from', listName);
+                        this.removeEmail(email, listName);
+                    });
+                }
+            }
+        });
+
+        // Make list containers droppable
+        document.querySelectorAll('.list-container').forEach(container => {
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                container.classList.add('drag-over');
+            });
+
+            container.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                container.classList.add('drag-over');
+            });
+
+            container.addEventListener('dragleave', (e) => {
+                // Only remove drag-over if we're actually leaving the container
+                if (!container.contains(e.relatedTarget)) {
+                    container.classList.remove('drag-over');
+                }
+            });
+
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                container.classList.remove('drag-over');
+                
+                const toList = container.dataset.list;
+                const email = e.dataTransfer.getData('text/plain') || this.draggedEmail;
+                
+                console.log('Drop event:', email, 'from', this.draggedFromList, 'to', toList);
+                
+                if (email && this.draggedFromList && toList !== this.draggedFromList) {
+                    this.moveEmail(email, this.draggedFromList, toList);
+                }
+                
+                // Clear drag state
+                this.draggedEmail = null;
+                this.draggedFromList = null;
+            });
+        });
+
+        // Remove button functionality is now handled via onclick in HTML template
+    }
+
+    async addEmail() {
+        const email = document.getElementById('emailInput').value.trim();
+        const list = document.getElementById('listSelect').value;
+        const btn = document.getElementById('addEmailBtn');
+
+        if (!email || !list) {
+            this.showError('Please enter an email address and select a list');
+            return;
+        }
+
+        // Show loading state
+        this.setButtonLoading(btn, true);
+
+        try {
+            const response = await fetch(`/lists/api/add/${list}`, {
+                method: 'POST',
+                headers: this.getCSRFHeaders(),
+                body: JSON.stringify({ email: email })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.showSuccess(data.message);
+                document.getElementById('emailInput').value = '';
+                await this.refresh();
+            } else {
+                this.showError(data.error);
+            }
+        } catch (error) {
+            this.showError('Network error: ' + error.message);
+        } finally {
+            // Always reset button state
+            this.setButtonLoading(btn, false);
+        }
+    }
+
+    async removeEmail(email, list) {
+        if (!confirm(`Remove ${email} from ${list}?`)) return;
+
+        try {
+            const response = await fetch(`/lists/api/remove/${list}`, {
+                method: 'DELETE',
+                headers: this.getCSRFHeaders(),
+                body: JSON.stringify({ email: email })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.showSuccess(data.message);
+                await this.refresh();
+            } else {
+                this.showError(data.error);
+            }
+        } catch (error) {
+            this.showError('Network error: ' + error.message);
+        }
+    }
+
+    async moveEmail(email, fromList, toList) {
+        try {
+            const response = await fetch('/lists/api/move', {
+                method: 'POST',
+                headers: this.getCSRFHeaders(),
+                body: JSON.stringify({
+                    email: email,
+                    from_list: fromList,
+                    to_list: toList
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.showSuccess(data.message);
+                await this.refresh();
+            } else {
+                this.showError(data.error);
+            }
+        } catch (error) {
+            this.showError('Network error: ' + error.message);
+        }
+    }
+
+    async refresh() {
+        this.showLoading();
+        await this.loadData();
+        this.renderLists();
+        this.populateListSelect();
+        this.checkConflicts();
+    }
+
+    populateListSelect() {
+        const select = document.getElementById('listSelect');
+        select.innerHTML = '<option value="">Select list...</option>';
+        
+        Object.keys(this.lists).forEach(listName => {
+            const option = document.createElement('option');
+            option.value = listName;
+            option.textContent = this.formatListName(listName);
+            select.appendChild(option);
+        });
+    }
+
+    checkConflicts() {
+        const panel = document.getElementById('conflictsPanel');
+        const conflictsList = document.getElementById('conflictsList');
+
+        // Get unique conflicting emails and their lists
+        const conflictEmails = this.getUniqueConflictEmails();
+        
+        if (conflictEmails.length > 0) {
+            let conflictsHtml = '<div class="table-responsive"><table class="table table-sm">';
+            conflictsHtml += `
+                <thead>
+                    <tr>
+                        <th>Email Address</th>
+                        <th>Appears In</th>
+                        <th>Keep In</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            conflictEmails.forEach(({email, lists}) => {
+                conflictsHtml += `
+                    <tr>
+                        <td><strong>${email}</strong></td>
+                        <td><span class="badge bg-warning text-dark me-1">${lists.join('</span><span class="badge bg-warning text-dark me-1">')}</span></td>
+                        <td>
+                            <select class="form-select form-select-sm conflict-resolution" data-email="${email}">
+                                <option value="">Choose action...</option>
+                                ${lists.map(list => 
+                                    `<option value="${list}">Keep in ${this.formatListName(list)}</option>`
+                                ).join('')}
+                                <option value="remove-all">Remove from all lists</option>
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            conflictsHtml += '</tbody></table></div>';
+            conflictsList.innerHTML = conflictsHtml;
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+
+    getUniqueConflictEmails() {
+        const emailConflicts = {};
+        
+        // Build a map of email -> lists it appears in
+        Object.values(this.conflicts).forEach(conflict => {
+            conflict.emails.forEach(email => {
+                if (!emailConflicts[email]) {
+                    emailConflicts[email] = new Set();
+                }
+                conflict.lists.forEach(list => emailConflicts[email].add(list));
+            });
+        });
+        
+        // Convert to array format
+        return Object.entries(emailConflicts).map(([email, listsSet]) => ({
+            email,
+            lists: Array.from(listsSet)
+        }));
+    }
+
+    getConflictEmailsForList(listName) {
+        const conflictEmails = [];
+        Object.values(this.conflicts).forEach(conflict => {
+            if (conflict.lists.includes(listName)) {
+                conflictEmails.push(...conflict.emails);
+            }
+        });
+        return conflictEmails;
+    }
+
+
+    async applyConflictResolution() {
+        try {
+            const selections = document.querySelectorAll('.conflict-resolution');
+            console.log('Found selections:', selections.length);
+            
+            if (selections.length === 0) {
+                this.showError('No conflicts to resolve');
+                return;
+            }
+            
+            const resolutions = [];
+            
+            // Collect all resolution choices
+            for (const select of selections) {
+                const email = select.dataset.email;
+                const action = select.value.trim(); // Trim any whitespace
+                
+                console.log(`Resolution for ${email}: "${action}"`);
+                
+                if (!action) {
+                    this.showError(`Please choose an action for ${email}`);
+                    return;
+                }
+                
+                resolutions.push({ email, action });
+            }
+            
+            if (resolutions.length === 0) {
+                this.showError('No valid resolutions selected');
+                return;
+            }
+            
+            // Apply each resolution
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const resolution of resolutions) {
+                try {
+                    console.log(`Applying resolution for ${resolution.email}: ${resolution.action}`);
+                    await this.resolveEmailConflict(resolution.email, resolution.action);
+                    successCount++;
+                } catch (error) {
+                    errorCount++;
+                    console.error(`Failed to resolve conflict for ${resolution.email}:`, error);
+                    this.showError(`Failed to resolve conflict for ${resolution.email}: ${error.message}`);
+                }
+            }
+            
+            if (successCount > 0) {
+                this.showSuccess(`Resolved ${successCount} conflict(s)${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+                await this.refresh();
+            } else if (errorCount > 0) {
+                this.showError('Failed to resolve conflicts - see console for details');
+            }
+            
+        } catch (error) {
+            console.error('Error in applyConflictResolution:', error);
+            this.showError('Failed to apply conflict resolution: ' + error.message);
+        }
+    }
+
+    async resolveEmailConflict(email, action) {
+        console.log(`Resolving conflict for ${email}, action: ${action}`);
+        
+        const conflictEmails = this.getUniqueConflictEmails();
+        const emailData = conflictEmails.find(item => item.email === email);
+        
+        if (!emailData) {
+            throw new Error(`Email ${email} not found in conflicts`);
+        }
+        
+        console.log(`Email data for ${email}:`, emailData);
+        
+        if (action === 'remove-all') {
+            console.log(`Removing ${email} from all lists:`, emailData.lists);
+            // Remove from all lists
+            for (const listName of emailData.lists) {
+                console.log(`Removing ${email} from ${listName}`);
+                await this.removeEmailFromList(email, listName);
+            }
+        } else {
+            console.log(`Keeping ${email} in ${action}, removing from others`);
+            // Keep in selected list, remove from others
+            for (const listName of emailData.lists) {
+                if (listName !== action) {
+                    console.log(`Removing ${email} from ${listName} (keeping in ${action})`);
+                    await this.removeEmailFromList(email, listName);
+                }
+            }
+        }
+    }
+
+    async removeEmailFromList(email, listName) {
+        console.log(`Making API call to remove ${email} from ${listName}`);
+        
+        try {
+            const response = await fetch(`/lists/api/remove/${listName}`, {
+                method: 'DELETE',
+                headers: this.getCSRFHeaders(),
+                body: JSON.stringify({ email: email })
+            });
+
+            console.log(`API response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`API error response: ${errorText}`);
+                throw new Error(`Failed to remove ${email} from ${listName}: ${response.status} ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log(`Successfully removed ${email} from ${listName}:`, result);
+            return result;
+            
+        } catch (fetchError) {
+            console.error(`Network error removing ${email} from ${listName}:`, fetchError);
+            throw new Error(`Network error: ${fetchError.message}`);
+        }
+    }
+
+    getListIcon(listName) {
+        const icons = {
+            'white': 'check-circle',
+            'black': 'x-circle',
+            'vendor': 'shop',
+            'head': 'person-badge',
+            'junk': 'trash',
+            'approved': 'shield-check',
+            'pending': 'clock'
+        };
+        return icons[listName] || 'list';
+    }
+
+    formatListName(listName) {
+        return listName.charAt(0).toUpperCase() + listName.slice(1).replace('_', ' ');
+    }
+
+    showLoading() {
+        document.getElementById('loadingSpinner').style.display = 'block';
+        document.getElementById('listsContainer').style.display = 'none';
+    }
+
+    hideLoading() {
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('listsContainer').style.display = 'flex';
+    }
+
+    showSuccess(message) {
+        this.showAlert(message, 'success');
+    }
+
+    showError(message) {
+        this.showAlert(message, 'danger');
+    }
+
+    showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    setButtonLoading(button, isLoading) {
+        if (isLoading) {
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Adding...';
+        } else {
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-plus"></i> Add Email';
+        }
+    }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new ListManager();
+});
+</script>
+{% endblock %}
