@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mail-rulez:
-    image: ghcr.io/real-pm/mail-rulez:latest
+    image: ghcr.io/real-pm/mail-rulez-public:latest
     container_name: mail-rulez
     restart: unless-stopped
     ports:
