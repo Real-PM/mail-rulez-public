@@ -96,7 +96,8 @@ ENV FLASK_ENV=production \
     CONTAINER_ENV=true \
     MAIL_RULEZ_LOG_LEVEL=INFO \
     MAIL_RULEZ_JSON_LOGS=true \
-    MAIL_RULEZ_LOG_RETENTION_DAYS=30
+    MAIL_RULEZ_LOG_RETENTION_DAYS=30 \
+    PYTHONPATH=/app/src:$PYTHONPATH
 
 # Install log rotation utility
 RUN apt-get update && apt-get install -y logrotate && \
